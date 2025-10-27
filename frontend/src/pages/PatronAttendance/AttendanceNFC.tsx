@@ -7,6 +7,9 @@ interface NFCReaderModalProps {
   onSuccess?: (userName: string, readerNumber: number) => void;
 }
 
+// You can load your API base from Vite env
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://libra-x-website-api.vercel.app";
+
 const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) => {
   const navigate = useNavigate();
   const [isReading, setIsReading] = useState(true);
@@ -19,26 +22,46 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
     startNfcReading();
   }, []);
 
+  const logAttendance = async (name: string, readerNo: number) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/attendance/log`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include", // if you use cookies or sessions
+        body: JSON.stringify({
+          name,
+          readerNo,
+          timestamp: new Date().toISOString(),
+        }),
+      });
+
+      if (!res.ok) throw new Error(`API responded with ${res.status}`);
+
+      console.log("✅ Attendance logged successfully");
+    } catch (error) {
+      console.error("❌ Failed to log attendance:", error);
+    }
+  };
+
   const startNfcReading = async () => {
     setIsReading(true);
     setNfcSuccess(false);
     setNfcFailed(false);
 
     try {
-      // Check if Web NFC is available
       if ("NDEFReader" in window) {
         const ndef = new (window as any).NDEFReader();
         await ndef.scan();
-
         console.log("✅ NFC scanning started...");
 
-        ndef.onreading = (event: any) => {
+        ndef.onreading = async (event: any) => {
           const decoder = new TextDecoder();
           for (const record of event.message.records) {
             const payload = decoder.decode(record.data);
             console.log("🔹 NFC payload:", payload);
 
-            // Parse or process payload
             const fakeUser = {
               name: payload || "Juan Dela Cruz",
               readerNo: Math.floor(Math.random() * 100),
@@ -46,6 +69,9 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
 
             setUserName(fakeUser.name);
             setReaderNumber(fakeUser.readerNo);
+
+            await logAttendance(fakeUser.name, fakeUser.readerNo); // 🧠 <— Log to backend here
+
             onSuccess?.(fakeUser.name, fakeUser.readerNo);
             setNfcSuccess(true);
             setIsReading(false);
@@ -68,17 +94,18 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
     }
   };
 
-  // Fallback for unsupported browsers
+  // 🧩 Fallback simulation for browsers without NFC
   const simulateNfcFallback = async () => {
     await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    // Simulate 70% success rate
     const success = Math.random() < 0.7;
 
     if (success) {
       const fakeUser = { name: "Juan Dela Cruz", readerNo: 42 };
       setUserName(fakeUser.name);
       setReaderNumber(fakeUser.readerNo);
+
+      await logAttendance(fakeUser.name, fakeUser.readerNo); // 🧠 <— Also logs here
+
       onSuccess?.(fakeUser.name, fakeUser.readerNo);
       setNfcSuccess(true);
     } else {
@@ -94,11 +121,6 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
     onClose();
   };
 
-  const handleViewDashboard = () => {
-    handleCloseAll();
-    navigate("/member/dashboard");
-  };
-
   const handleContinueBrowsing = () => {
     handleCloseAll();
     navigate("/");
@@ -112,7 +134,9 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
           <h2 className={styles.readyTitle}>Ready to Scan</h2>
           <div className={styles.nfcIcon}></div>
           <p className={styles.instruction}>Tap your NFC ID card to record attendance</p>
-          <button className={styles.cancelButton} onClick={handleCloseAll}>Cancel</button>
+          <button className={styles.cancelButton} onClick={handleCloseAll}>
+            Cancel
+          </button>
         </div>
       )}
 
@@ -123,8 +147,12 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
           <div className={styles.failIcon}></div>
           <p className={styles.failMessage}>Card scanning failed. Do you want to try again?</p>
           <div className={styles.buttonGroup}>
-            <button className={styles.primaryButton} onClick={startNfcReading}>Try Again</button>
-            <button className={styles.cancelButton} onClick={handleCloseAll}>Cancel</button>
+            <button className={styles.primaryButton} onClick={startNfcReading}>
+              Try Again
+            </button>
+            <button className={styles.cancelButton} onClick={handleCloseAll}>
+              Cancel
+            </button>
           </div>
         </div>
       )}
@@ -132,7 +160,9 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
       {/* 🔹 Success */}
       {nfcSuccess && (
         <div className={styles.modalContent}>
-          <button className={styles.closeButton} onClick={handleCloseAll} aria-label="Close modal">×</button>
+          <button className={styles.closeButton} onClick={handleCloseAll} aria-label="Close modal">
+            ×
+          </button>
 
           <div className={styles.contentWrapper}>
             <div className={styles.successIcon}>✅</div>
@@ -141,9 +171,6 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
             <div className={styles.readerInfo}>📖 You are Reader #{readerNumber} today</div>
 
             <div className={styles.buttonGroup}>
-              <button className={styles.primaryButton} onClick={handleViewDashboard}>
-                View My Dashboard
-              </button>
               <button className={styles.secondaryButton} onClick={handleContinueBrowsing}>
                 Continue Browsing
               </button>
