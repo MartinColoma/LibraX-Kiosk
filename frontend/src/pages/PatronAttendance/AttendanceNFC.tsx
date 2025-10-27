@@ -18,12 +18,12 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
   const [nfcFailed, setNfcFailed] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
   const [readerNumber, setReaderNumber] = useState<number | null>(null);
+  const [scannedUid, setScannedUid] = useState<string | null>(null); // 🔹 Track scanned UID
 
   useEffect(() => {
     startNfcReading();
   }, []);
 
-  // 1️⃣ Scan API
   const scanUser = async (nfc_uid: string) => {
     const res = await fetch(`${API_BASE_URL}/api/attendance/scan`, {
       method: "POST",
@@ -35,7 +35,6 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
     return data.user;
   };
 
-  // 2️⃣ Log API
   const logAttendance = async (user_id: string, nfc_uid: string) => {
     const reader_number = Math.floor(Math.random() * 100) + 1;
     const res = await fetch(`${API_BASE_URL}/api/attendance/log`, {
@@ -52,6 +51,7 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
     setIsReading(true);
     setNfcSuccess(false);
     setNfcFailed(false);
+    setScannedUid(null);
 
     try {
       if ("NDEFReader" in window) {
@@ -65,9 +65,11 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
             const nfc_uid = decoder.decode(record.data).trim();
             console.log("🔹 NFC UID detected:", nfc_uid);
 
+            setScannedUid(nfc_uid); // 🔹 update the scanned UID in UI
+
             try {
-              const user = await scanUser(nfc_uid);             // ✅ Verify user
-              const reader_number = await logAttendance(user.user_id, user.nfc_uid); // ✅ Log attendance
+              const user = await scanUser(nfc_uid);
+              const reader_number = await logAttendance(user.user_id, user.nfc_uid);
 
               setUserName(`${user.first_name} ${user.last_name}`);
               setReaderNumber(reader_number);
@@ -98,7 +100,6 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
     }
   };
 
-  // Simulation fallback for unsupported devices
   const simulateFallback = async () => {
     await new Promise((r) => setTimeout(r, 1000));
     try {
@@ -108,6 +109,7 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
       setUserName(`${user.first_name} ${user.last_name}`);
       setReaderNumber(reader_number);
       setNfcSuccess(true);
+      setScannedUid("SIMULATED_UID_123"); // 🔹 show simulated UID
     } catch {
       setNfcFailed(true);
     }
@@ -117,6 +119,7 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
   const handleCloseAll = () => {
     setNfcFailed(false);
     setNfcSuccess(false);
+    setScannedUid(null);
     onClose();
   };
 
@@ -135,6 +138,7 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
           <h2 className={styles.readyTitle}>Ready to Scan</h2>
           <div className={styles.nfcIcon}></div>
           <p className={styles.instruction}>Tap your NFC card to record attendance</p>
+          {scannedUid && <p className={styles.scannedUid}>Scanned UID: {scannedUid}</p>} {/* 🔹 Display UID */}
           <button className={styles.cancelButton} onClick={handleCloseAll}>Cancel</button>
         </div>
       )}
@@ -143,6 +147,7 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
         <div className={styles.failCard}>
           <h2 className={styles.failTitle}>Scan Failed</h2>
           <p className={styles.failMessage}>Could not detect or verify card. Try again?</p>
+          {scannedUid && <p className={styles.scannedUid}>Last UID: {scannedUid}</p>} {/* 🔹 Display UID */}
           <div className={styles.buttonGroup}>
             <button className={styles.primaryButton} onClick={startNfcReading}>Try Again</button>
             <button className={styles.cancelButton} onClick={handleCloseAll}>Cancel</button>
@@ -158,6 +163,7 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
             <h2 className={styles.title}>Attendance Recorded</h2>
             <p className={styles.welcomeMessage}>Welcome, {userName}</p>
             <div className={styles.readerInfo}>📖 You are Reader #{readerNumber}</div>
+            {scannedUid && <p className={styles.scannedUid}>Scanned UID: {scannedUid}</p>} {/* 🔹 Display UID */}
             <button className={styles.secondaryButton} onClick={handleContinueBrowsing}>
               Continue Browsing
             </button>
