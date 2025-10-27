@@ -28,32 +28,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (userError || !user)
       return res.status(404).json({ success: false, message: "User not found" });
 
-    // Step 2: Log attendance if not already present today
-    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-    const { data: existing, error: existError } = await supabase
+    // Step 2: Always insert attendance (no daily check)
+    const { error: insertError } = await supabase
       .from("attendance")
-      .select("attendance_id")
-      .eq("user_id", user.user_id)
-      .gte("scan_time", today + " 00:00:00")
-      .lt("scan_time", today + " 23:59:59")
-      .single();
+      .insert([
+        {
+          user_id: user.user_id,
+          nfc_uid,
+          reader_number,
+          status: "Present"
+        }
+      ]);
 
-    if (!existing) {
-      // Insert attendance
-      const { error: insertError } = await supabase
-        .from("attendance")
-        .insert([
-          {
-            user_id: user.user_id,
-            nfc_uid,
-            reader_number,
-            status: "Present"
-          }
-        ]);
-
-      if (insertError)
-        return res.status(500).json({ success: false, message: "Failed to record attendance" });
-    }
+    if (insertError)
+      return res.status(500).json({ success: false, message: "Failed to record attendance" });
 
     // Return success + user info
     return res.status(200).json({
@@ -68,3 +56,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ success: false, message: "Server error" });
   }
 }
+
