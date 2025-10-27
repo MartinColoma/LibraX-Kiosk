@@ -28,30 +28,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(404).json({ success: false, message: "User not found" });
 
     // Step 2: Always insert attendance without daily check (allow multiple per day)
+    // Insert the attendance
     const { error: insertError } = await supabase
-      .from("attendance")
-      .insert([
+        .from("attendance")
+        .insert([
         {
-          user_id: user.user_id,
-          nfc_uid,
-          reader_number,
-          status: "Present"
+            user_id: user.user_id,
+            nfc_uid,
+            reader_number,
+            status: "Present"
         }
-      ]);
+        ]);
 
     if (insertError)
-      return res.status(500).json({ success: false, message: "Failed to record attendance" });
+        return res.status(500).json({ success: false, message: "Failed to record attendance" });
 
-    // Return success with user info
+    // Query the latest reader_number for today
+    const today = new Date().toISOString().slice(0, 10);
+    const { data: latest, error: latestError } = await supabase
+        .from("attendance")
+        .select("reader_number")
+        .order("scan_time", { ascending: false })
+        .eq("scan_time", today)
+        .limit(1)
+        .single();
+
+    // Fallback if there is an error
+    const latest_reader_number = latest?.reader_number || reader_number;
+
+    // Return success with latest reader number
     return res.status(200).json({
       success: true,
       user,
       reader_number,
       scannedUid: nfc_uid
     });
-
+  // <-- This is the end of try, next line is catch
   } catch (err: any) {
     console.error("Record API error:", err.message);
     return res.status(500).json({ success: false, message: "Server error" });
   }
 }
+
+
