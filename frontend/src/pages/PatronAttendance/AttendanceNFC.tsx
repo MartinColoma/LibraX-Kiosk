@@ -18,33 +18,21 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
   const [nfcFailed, setNfcFailed] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
   const [readerNumber, setReaderNumber] = useState<number | null>(null);
-  const [scannedUid, setScannedUid] = useState<string | null>(null); // 🔹 Track scanned UID
+  const [scannedUid, setScannedUid] = useState<string | null>(null);
 
   useEffect(() => {
     startNfcReading();
   }, []);
 
-  const scanUser = async (nfc_uid: string) => {
-    const res = await fetch(`${API_BASE_URL}/api/attendance/scan`, {
+  const scanAndLog = async (nfc_uid: string) => {
+    const res = await fetch(`${API_BASE_URL}/api/attendance/record`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ nfc_uid }),
     });
     const data = await res.json();
-    if (!res.ok || !data.success) throw new Error(data.message || "User not found");
-    return data.user;
-  };
-
-  const logAttendance = async (user_id: string, nfc_uid: string) => {
-    const reader_number = Math.floor(Math.random() * 100) + 1;
-    const res = await fetch(`${API_BASE_URL}/api/attendance/log`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id, nfc_uid, reader_number }),
-    });
-    const data = await res.json();
-    if (!res.ok || !data.success) throw new Error("Failed to log attendance");
-    return reader_number;
+    if (!res.ok || !data.success) throw new Error(data.message || "Failed");
+    return data;
   };
 
   const startNfcReading = async () => {
@@ -63,19 +51,16 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
           const decoder = new TextDecoder();
           for (const record of event.message.records) {
             const nfc_uid = decoder.decode(record.data).trim();
+            setScannedUid(nfc_uid);
             console.log("🔹 NFC UID detected:", nfc_uid);
 
-            setScannedUid(nfc_uid); // 🔹 update the scanned UID in UI
-
             try {
-              const user = await scanUser(nfc_uid);
-              const reader_number = await logAttendance(user.user_id, user.nfc_uid);
-
-              setUserName(`${user.first_name} ${user.last_name}`);
-              setReaderNumber(reader_number);
+              const result = await scanAndLog(nfc_uid);
+              setUserName(`${result.user.first_name} ${result.user.last_name}`);
+              setReaderNumber(result.reader_number);
               setNfcSuccess(true);
               setIsReading(false);
-              onSuccess?.(`${user.first_name} ${user.last_name}`, reader_number);
+              onSuccess?.(`${result.user.first_name} ${result.user.last_name}`, result.reader_number);
             } catch (err) {
               console.error("❌ Scan or log failed:", err);
               setNfcFailed(true);
@@ -103,13 +88,11 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
   const simulateFallback = async () => {
     await new Promise((r) => setTimeout(r, 1000));
     try {
-      const user = await scanUser("SIMULATED_UID_123");
-      const reader_number = await logAttendance(user.user_id, user.nfc_uid);
-
-      setUserName(`${user.first_name} ${user.last_name}`);
-      setReaderNumber(reader_number);
+      const result = await scanAndLog("SIMULATED_UID_123");
+      setUserName(`${result.user.first_name} ${result.user.last_name}`);
+      setReaderNumber(result.reader_number);
+      setScannedUid(result.scannedUid);
       setNfcSuccess(true);
-      setScannedUid("SIMULATED_UID_123"); // 🔹 show simulated UID
     } catch {
       setNfcFailed(true);
     }
@@ -129,16 +112,13 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
   };
 
   return (
-    <div
-      className={styles.modalOverlay}
-      onClick={(e) => e.target === e.currentTarget && handleCloseAll()}
-    >
+    <div className={styles.modalOverlay} onClick={(e) => e.target === e.currentTarget && handleCloseAll()}>
       {isReading && !nfcSuccess && !nfcFailed && (
         <div className={styles.nfcCard}>
           <h2 className={styles.readyTitle}>Ready to Scan</h2>
           <div className={styles.nfcIcon}></div>
           <p className={styles.instruction}>Tap your NFC card to record attendance</p>
-          {scannedUid && <p className={styles.scannedUid}>Scanned UID: {scannedUid}</p>} {/* 🔹 Display UID */}
+          {scannedUid && <p className={styles.scannedUid}>Scanned UID: {scannedUid}</p>}
           <button className={styles.cancelButton} onClick={handleCloseAll}>Cancel</button>
         </div>
       )}
@@ -147,7 +127,7 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
         <div className={styles.failCard}>
           <h2 className={styles.failTitle}>Scan Failed</h2>
           <p className={styles.failMessage}>Could not detect or verify card. Try again?</p>
-          {scannedUid && <p className={styles.scannedUid}>Last UID: {scannedUid}</p>} {/* 🔹 Display UID */}
+          {scannedUid && <p className={styles.scannedUid}>Last UID: {scannedUid}</p>}
           <div className={styles.buttonGroup}>
             <button className={styles.primaryButton} onClick={startNfcReading}>Try Again</button>
             <button className={styles.cancelButton} onClick={handleCloseAll}>Cancel</button>
@@ -163,7 +143,7 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
             <h2 className={styles.title}>Attendance Recorded</h2>
             <p className={styles.welcomeMessage}>Welcome, {userName}</p>
             <div className={styles.readerInfo}>📖 You are Reader #{readerNumber}</div>
-            {scannedUid && <p className={styles.scannedUid}>Scanned UID: {scannedUid}</p>} {/* 🔹 Display UID */}
+            {scannedUid && <p className={styles.scannedUid}>Scanned UID: {scannedUid}</p>}
             <button className={styles.secondaryButton} onClick={handleContinueBrowsing}>
               Continue Browsing
             </button>
