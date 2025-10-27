@@ -1,4 +1,3 @@
-// /api/attendance/record.ts
 import { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
 import { handleCors } from "../utils/cors";
@@ -18,7 +17,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!nfc_uid)
       return res.status(400).json({ success: false, message: "Missing NFC UID" });
 
-    // Step 1: Find the user
+    // Step 1: Find the user matching the NFC UID
     const { data: user, error: userError } = await supabase
       .from("users")
       .select("user_id, first_name, last_name, nfc_uid, role")
@@ -28,7 +27,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (userError || !user)
       return res.status(404).json({ success: false, message: "User not found" });
 
-    // Step 2: Always insert attendance (no daily check)
+    // Step 2: Always insert attendance without daily check (allow multiple per day)
     const { error: insertError } = await supabase
       .from("attendance")
       .insert([
@@ -43,7 +42,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (insertError)
       return res.status(500).json({ success: false, message: "Failed to record attendance" });
 
-    // Return success + user info
+    // Return success with user info
     return res.status(200).json({
       success: true,
       user,
@@ -56,4 +55,3 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ success: false, message: "Server error" });
   }
 }
-

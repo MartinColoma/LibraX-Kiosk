@@ -25,20 +25,19 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
 
   const scanAndLog = async (nfc_uid: string) => {
     console.log("📤 Sending to API:", nfc_uid);
-    
-    // Fix: Remove /attendance/ from path
+
     const apiUrl = `https://${API_BASE_URL}/api/attendance/record`;
     console.log("🌐 API URL:", apiUrl);
-    
+
     const res = await fetch(apiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ nfc_uid }),
     });
-    
+
     const data = await res.json();
     console.log("📥 API Response:", data);
-    
+
     if (!res.ok || !data.success) {
       throw new Error(data.message || "Failed to record attendance");
     }
@@ -59,7 +58,6 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
         console.log("✅ NFC scanning started...");
 
         ndef.onreading = async (event: any) => {
-          // FIX: Use serialNumber instead of record data
           const nfc_uid = event.serialNumber;
           setScannedUid(nfc_uid);
           console.log("🔹 NFC UID detected:", nfc_uid);
@@ -72,7 +70,8 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
             setReaderNumber(result.reader_number);
             setNfcSuccess(true);
             setIsReading(false);
-            onSuccess?.(fullName, result.reader_number);
+            // Delay calling onSuccess until user clicks continue
+            // onSuccess?.(fullName, result.reader_number);  <-- REMOVE here
           } catch (err: any) {
             console.error("❌ Scan or log failed:", err);
             setErrorMessage(err.message || "Unknown error");
@@ -121,10 +120,14 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
     setNfcSuccess(false);
     setScannedUid(null);
     setErrorMessage("");
+    setUserName(null);
+    setReaderNumber(null);
     onClose();
   };
 
   const handleContinueBrowsing = () => {
+    // Fire onSuccess now after confirmation
+    onSuccess?.(userName || "", readerNumber || 1);
     handleCloseAll();
     navigate("/");
   };
