@@ -1,0 +1,286 @@
+.opacContainer {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f7f5f2 0%, #edeae6 100%);
+  font-family: 'Arial', sans-serif;
+  color: #2b2b2b;
+}
+
+/* HEADER */
+.opacHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #7d2e2e;
+  color: white;
+  padding: 20px 60px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  z-index: 100;
+}
+
+.logoSection {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.logo {
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  margin: 0;
+}
+
+.subtitle {
+  font-size: 16px;
+  font-weight: 400;
+  color: #f5d5d5;
+  margin-top: 4px;
+}
+
+.navLinks {
+  display: flex;
+  gap: 40px;
+}
+
+.navLinks a {
+  color: white;
+  font-weight: 600;
+  font-size: 18px;
+  text-decoration: none;
+  transition: opacity 0.3s ease;
+}
+
+.navLinks a:hover {
+  opacity: 0.8;
+}
+
+/* MAIN CONTENT */
+.opacMain {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 80px 20px;
+  text-align: center;
+}
+
+.pageTitle {
+  font-size: 48px;
+  font-weight: 700;
+  color: #7d2e2e;
+  margin-bottom: 60px;
+  letter-spacing: -0.5px;
+}
+
+/* SEARCH BAR */
+.searchBar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: white;
+  padding: 16px 20px;
+  border-radius: 16px;
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.1);
+  width: 80%;
+  max-width: 900px;
+}
+
+.searchDropdown {
+  padding: 14px 18px;
+  border-radius: 12px;
+  border: 1px solid #ccc;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  background-color: #fafafa;
+  cursor: pointer;
+  transition: border 0.2s ease;
+}
+
+.searchDropdown:focus {
+  border-color: #7d2e2e;
+  outline: none;
+}
+
+.searchInput {
+  flex: 1;
+  padding: 14px 20px;
+  border: 1px solid #ccc;
+  border-radius: 12px;
+  font-size: 18px;
+  outline: none;
+  transition: border 0.2s ease;
+}
+
+.searchInput:focus {
+  border-color: #7d2e2e;
+}
+
+.searchBtn {
+  background: #7d2e2e;
+  border: none;
+  color: white;
+  border-radius: 12px;
+  padding: 12px 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.searchBtn:hover {
+  background: #6b2525;
+  transform: translateY(-2px);
+}
+
+.searchHint {
+  margin-top: 40px;
+  font-size: 18px;
+  color: #666;
+  font-style: italic;
+}
+/* RESULTS SECTION */
+.resultsContainer {
+  margin-top: 40px;
+  width: 80%;
+  max-width: 900px;
+  text-align: left;
+}
+
+.resultCount {
+  font-size: 16px;
+  color: #3a1e1e;
+  margin-bottom: 20px;
+  font-weight: 600;
+}
+
+/* BOOK CARD */
+.bookCard {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border: 1px solid #4a2b2b;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 16px;
+  background-color: #fffaf5;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+}
+
+.bookDetails {
+  flex: 1;
+}
+
+.bookType {
+  font-size: 14px;
+  color: #7d2e2e;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.bookTitle {
+  font-size: 22px;
+  font-weight: 700;
+  color: #4a1e1e;
+  margin-bottom: 6px;
+}
+
+.bookMeta {
+  font-size: 16px;
+  color: #3a1e1e;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.available {
+  font-size: 16px;
+  color: green;
+  font-weight: 600;
+}
+
+.notAvailable {
+  font-size: 16px;
+  color: #a12e2e;
+  font-weight: 600;
+}
+
+/* ACTION BUTTON */
+.bookAction {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.requestBtn {
+  background-color: #7d2e2e;
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.requestBtn:hover {
+  background-color: #6b2525;
+}
+
+.disabledBtn {
+  background-color: #d1d1d1 !important;
+  cursor: not-allowed;
+}
+
+/* RESPONSIVE DESIGN */
+@media (max-width: 1024px) {
+  .opacHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 20px 30px;
+    gap: 10px;
+  }
+
+  .navLinks {
+    gap: 20px;
+  }
+
+  .pageTitle {
+    font-size: 36px;
+  }
+
+  .searchBar {
+    width: 90%;
+    flex-direction: column;
+    gap: 12px;
+    padding: 20px;
+  }
+
+  .searchInput,
+  .searchDropdown,
+  .searchBtn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .logo {
+    font-size: 32px;
+  }
+
+  .subtitle {
+    font-size: 14px;
+  }
+
+  .pageTitle {
+    font-size: 28px;
+    margin-bottom: 40px;
+  }
+
+  .searchHint {
+    font-size: 16px;
+  }
+}

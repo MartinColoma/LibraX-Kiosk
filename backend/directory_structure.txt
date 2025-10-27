@@ -1,0 +1,63 @@
+LibraX-Kiosk
+├── .env
+├── api
+│   ├── login
+│   │   └── auth.ts
+│   ├── package-lock.json
+│   ├── package.json
+│   └── reg
+│       └── registration.ts
+└── frontend
+    ├── .gitignore
+    ├── README.md
+    ├── eslint.config.js
+    ├── index.html
+    ├── package-lock.json
+    ├── package.json
+    ├── public
+    │   ├── LibraX Rectangle Logo 1.png
+    │   ├── LibraX Rectangle Logo 2.png
+    │   ├── LibraX Square Logo 1.png
+    │   ├── LibraX Square Logo 2.png
+    │   └── vite.svg
+    ├── src
+    │   ├── App.css
+    │   ├── App.tsx
+    │   ├── AppRoutes.tsx
+    │   ├── assets
+    │   │   ├── images
+    │   │   │   ├── library_cover1.jpg
+    │   │   │   └── library_cover2.jpg
+    │   │   └── react.svg
+    │   ├── hooks
+    │   │   └── usePageMeta.ts
+    │   ├── index.css
+    │   ├── main.tsx
+    │   └── pages
+    │       ├── Landing
+    │       │   ├── Home.css
+    │       │   ├── Home.tsx
+    │       │   └── NotFound
+    │       │       ├── PageNotFound.css
+    │       │       └── PageNotFound.tsx
+    │       ├── OPAC
+    │       │   ├── OPAC.css
+    │       │   ├── OPAC.tsx
+    │       │   └── modals
+    │       │       └── Chatbot
+    │       │           ├── Chatbot.module.css
+    │       │           └── Chatbot.tsx
+    │       ├── PatronAttendance
+    │       │   ├── Attendance.css
+    │       │   ├── Attendance.tsx
+    │       │   └── modals
+    │       │       ├── Att_Success.module.css
+    │       │       └── Att_Success.tsx
+    │       └── ReturnBooks
+    │           ├── ReturnBooks.css
+    │           ├── ReturnBooks.tsx
+    │           └── modals
+    ├── tsconfig.app.json
+    ├── tsconfig.json
+    ├── tsconfig.node.json
+    └── vite.config.ts

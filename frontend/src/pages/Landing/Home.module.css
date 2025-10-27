@@ -1,0 +1,163 @@
+.kioskContainer {
+  display: flex;
+  height: 100vh;
+  width: 100%;
+  font-family: 'Arial', sans-serif;
+}
+
+.libraryImage {
+  flex: 1;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.imageOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0) 100%);
+}
+
+.kioskPanel {
+  flex: 0 0 55%;
+  background: linear-gradient(135deg, #f5f3f0 0%, #e8e5e1 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60px;
+}
+
+.contentWrapper {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.centerBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: fit-content;
+}
+
+.logo {
+  font-size: 200px;
+  font-weight: 700;
+  color: #7d2e2e;
+  letter-spacing: -2px;
+  line-height: 1;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.subtitle {
+  font-size: 48px;
+  font-weight: 400;
+  color: #7d2e2e;
+  margin-bottom: 60px;
+  letter-spacing: -0.5px;
+  text-align: center;
+}
+
+.buttonContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  align-items: center;
+}
+
+.kioskButton {
+  width: 100%;
+  padding: 28px 40px;
+  font-size: 28px;
+  font-weight: 700;
+  color: white;
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+  line-height: 1.3;
+  letter-spacing: 0.5px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+.primary,
+.secondary,
+.tertiary {
+  background: linear-gradient(135deg, #7d2e2e 0%, #6b2525 100%);
+}
+
+.kioskButton:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.kioskButton:active {
+  transform: translateY(-1px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .kioskContainer {
+    flex-direction: column;
+  }
+
+  .libraryImage {
+    flex: 0 0 35%;
+  }
+
+  .kioskPanel {
+    flex: 1;
+    padding: 40px 30px;
+  }
+
+  .logo {
+    font-size: 100px;
+  }
+
+  .subtitle {
+    font-size: 32px;
+    margin-bottom: 40px;
+  }
+
+  .kioskButton {
+    padding: 24px 32px;
+    font-size: 24px;
+  }
+}
+
+@media (max-width: 640px) {
+  .libraryImage {
+    flex: 0 0 25%;
+    min-height: 200px;
+  }
+
+  .kioskPanel {
+    padding: 30px 20px;
+  }
+
+  .logo {
+    font-size: 64px;
+  }
+
+  .subtitle {
+    font-size: 24px;
+    margin-bottom: 30px;
+  }
+
+  .buttonContainer {
+    gap: 18px;
+  }
+
+  .kioskButton {
+    padding: 20px 24px;
+    font-size: 20px;
+    border-radius: 12px;
+  }
+}

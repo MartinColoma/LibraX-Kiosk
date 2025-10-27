@@ -1,0 +1,251 @@
+:root {
+  --muji-red: #6d1f25;
+  --muji-brown: #7d5a44;
+  --muji-grey: #bfb8af;
+  --muji-ivory: #f5f3ee;
+  --muji-dark: #1f1f1f;
+}
+
+/* Shared overlay */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(31, 31, 31, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+/* ===========================
+   NFC READY STATE CARD
+   =========================== */
+.nfcCard {
+  background: var(--muji-ivory);
+  border: 2px solid var(--muji-red);
+  border-radius: 10px;
+  padding: 2.5rem 3rem;
+  text-align: center;
+  width: 340px;
+  color: var(--muji-dark);
+  font-family: "Inter", sans-serif;
+  box-shadow: 0 8px 32px rgba(31, 31, 31, 0.15);
+  animation: modalAppear 0.3s ease-out;
+}
+
+.readyTitle {
+  font-weight: 600;
+  font-size: 1.3rem;
+  color: var(--muji-red);
+  margin-bottom: 1.5rem;
+  font-style: italic;
+}
+
+.nfcIcon {
+  width: 100px;
+  height: 100px;
+  margin: 0 auto 1.5rem;
+  background: var(--muji-red);
+  mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' fill='white' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 2a3 3 0 0 0-3 3v14a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3V5a3 3 0 0 0-3-3H5Zm0 2h8a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z'/%3E%3Cpath d='M17.707 7.293a1 1 0 0 0-1.414 1.414A6.975 6.975 0 0 1 18 12a6.975 6.975 0 0 1-1.707 4.293 1 1 0 1 0 1.414 1.414A8.975 8.975 0 0 0 20 12a8.975 8.975 0 0 0-2.293-4.707Z'/%3E%3C/svg%3E") center/contain no-repeat;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.instruction {
+  font-size: 0.95rem;
+  color: var(--muji-brown);
+  margin-bottom: 1.75rem;
+}
+
+.buttonGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.skipButton {
+  background-color: var(--muji-red);
+  color: white;
+  font-weight: 600;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.skipButton:hover {
+  background-color: #58171b;
+}
+
+.cancelButton {
+  background: none;
+  border: none;
+  color: var(--muji-brown);
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.cancelButton:hover {
+  color: var(--muji-red);
+}
+
+/* ===========================
+   SUCCESS STATE MODAL
+   =========================== */
+.modalContent {
+  background: var(--muji-ivory);
+  border-radius: 8px;
+  border: 2px solid var(--muji-grey);
+  box-shadow: 0 8px 32px rgba(31, 31, 31, 0.2);
+  max-width: 400px;
+  width: 100%;
+  animation: modalAppear 0.3s ease-out;
+  position: relative;
+}
+
+.closeButton {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--muji-brown);
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.closeButton:hover {
+  background-color: var(--muji-grey);
+  color: var(--muji-dark);
+}
+
+.contentWrapper {
+  padding: 2.5rem 2rem 2rem;
+  text-align: center;
+}
+
+.successIcon {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--muji-dark);
+  margin-bottom: 1.5rem;
+}
+
+.welcomeMessage {
+  font-size: 1rem;
+  color: var(--muji-brown);
+  margin-bottom: 1rem;
+}
+
+.readerInfo {
+  font-size: 0.95rem;
+  color: var(--muji-dark);
+  background-color: rgba(191, 184, 175, 0.2);
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 2rem;
+  border-left: 4px solid var(--muji-red);
+  font-weight: 500;
+}
+
+.primaryButton,
+.secondaryButton {
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  border: none;
+}
+
+.primaryButton {
+  background-color: var(--muji-red);
+  color: white;
+}
+
+.primaryButton:hover {
+  background-color: #5a1a1f;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(109, 31, 37, 0.3);
+}
+
+.secondaryButton {
+  background-color: transparent;
+  color: var(--muji-brown);
+  border: 2px solid var(--muji-brown);
+}
+
+.secondaryButton:hover {
+  background-color: var(--muji-brown);
+  color: var(--muji-ivory);
+  transform: translateY(-1px);
+}
+
+/* Animations */
+@keyframes modalAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+/* ===========================
+   SCAN FAILED STATE
+   =========================== */
+.failCard {
+  background: var(--muji-ivory);
+  border: 2px solid var(--muji-red);
+  border-radius: 10px;
+  padding: 2.5rem 3rem;
+  text-align: center;
+  width: 340px;
+  color: var(--muji-dark);
+  font-family: "Inter", sans-serif;
+  box-shadow: 0 8px 32px rgba(31, 31, 31, 0.15);
+  animation: modalAppear 0.3s ease-out;
+}
+
+.failTitle {
+  font-weight: 600;
+  font-size: 1.3rem;
+  color: var(--muji-red);
+  margin-bottom: 1.5rem;
+  font-style: italic;
+}
+
+.failIcon {
+  width: 100px;
+  height: 100px;
+  margin: 0 auto 1.5rem;
+  background: var(--muji-red);
+  mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' fill='white' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 2a3 3 0 0 0-3 3v14a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3V5a3 3 0 0 0-3-3H5Zm0 2h8a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z'/%3E%3Cpath d='M17.707 7.293a1 1 0 0 0-1.414 1.414A6.975 6.975 0 0 1 18 12a6.975 6.975 0 0 1-1.707 4.293 1 1 0 1 0 1.414 1.414A8.975 8.975 0 0 0 20 12a8.975 8.975 0 0 0-2.293-4.707Z'/%3E%3C/svg%3E") center/contain no-repeat;
+  opacity: 0.6;
+}
+
+.failMessage {
+  font-size: 0.95rem;
+  color: var(--muji-brown);
+  margin-bottom: 1.75rem;
+}
