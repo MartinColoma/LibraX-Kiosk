@@ -7,9 +7,7 @@ interface NFCReaderModalProps {
   onSuccess?: (userName: string, readerNumber: number) => void;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL?.startsWith("http")
-  ? import.meta.env.VITE_API_BASE_URL
-  : `https://${import.meta.env.VITE_API_BASE_URL}`;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 
 const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) => {
   const navigate = useNavigate();
