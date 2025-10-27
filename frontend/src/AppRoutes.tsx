@@ -58,14 +58,14 @@ const AppRoutes: React.FC = () => {
                 element={createPortal(
                     <AttendanceNFC
                     onClose={() => window.history.back()}
-                    onSuccess={(userName: string, readerNumber: number) => {
-                        console.log(`✅ Success for ${userName} (#${readerNumber})`);
+                    onSuccess={(userName, readerNumber) => {
+                        console.log("✅ Attendance recorded for:", userName, "Reader #", readerNumber);
+                        window.history.back();
                     }}
                     />,
                     document.body
                 )}
                 />
-
 
                 {/* Return Book Page Routes*/}
 
