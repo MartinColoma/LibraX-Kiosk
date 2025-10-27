@@ -25,7 +25,7 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
   }, []);
 
   const scanAndLog = async (nfc_uid: string) => {
-    const res = await fetch(`${API_BASE_URL}/api/attendance/record`, {
+    const res = await fetch(`https://${API_BASE_URL}/api/attendance/record`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ nfc_uid }),
@@ -49,23 +49,22 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
 
         ndef.onreading = async (event: any) => {
           const decoder = new TextDecoder();
-          for (const record of event.message.records) {
-            const nfc_uid = decoder.decode(record.data).trim();
-            setScannedUid(nfc_uid);
-            console.log("🔹 NFC UID detected:", nfc_uid);
+          const nfc_uid = decoder.decode(event.message.records[0].data).trim();
+          setScannedUid(nfc_uid);
+          console.log("🔹 NFC UID detected:", nfc_uid);
 
-            try {
-              const result = await scanAndLog(nfc_uid);
-              setUserName(`${result.user.first_name} ${result.user.last_name}`);
-              setReaderNumber(result.reader_number);
-              setNfcSuccess(true);
-              setIsReading(false);
-              onSuccess?.(`${result.user.first_name} ${result.user.last_name}`, result.reader_number);
-            } catch (err) {
-              console.error("❌ Scan or log failed:", err);
-              setNfcFailed(true);
-              setIsReading(false);
-            }
+          try {
+            const result = await scanAndLog(nfc_uid);
+            const fullName = `${result.user.first_name} ${result.user.last_name}`;
+            setUserName(fullName);
+            setReaderNumber(result.reader_number);
+            setNfcSuccess(true);
+            setIsReading(false);
+            onSuccess?.(fullName, result.reader_number);
+          } catch (err) {
+            console.error("❌ Scan or log failed:", err);
+            setNfcFailed(true);
+            setIsReading(false);
           }
         };
 
@@ -89,7 +88,8 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
     await new Promise((r) => setTimeout(r, 1000));
     try {
       const result = await scanAndLog("SIMULATED_UID_123");
-      setUserName(`${result.user.first_name} ${result.user.last_name}`);
+      const fullName = `${result.user.first_name} ${result.user.last_name}`;
+      setUserName(fullName);
       setReaderNumber(result.reader_number);
       setScannedUid(result.scannedUid);
       setNfcSuccess(true);
@@ -142,7 +142,7 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
             <div className={styles.successIcon}>✅</div>
             <h2 className={styles.title}>Attendance Recorded</h2>
             <p className={styles.welcomeMessage}>Welcome, {userName}</p>
-            <div className={styles.readerInfo}>📖 You are Reader #{readerNumber}</div>
+            <div className={styles.readerInfo}>📖 Reader #{readerNumber}</div>
             {scannedUid && <p className={styles.scannedUid}>Scanned UID: {scannedUid}</p>}
             <button className={styles.secondaryButton} onClick={handleContinueBrowsing}>
               Continue Browsing
