@@ -7,8 +7,7 @@ interface NFCReaderModalProps {
   onSuccess?: (userName: string, readerNumber: number) => void;
 }
 
-// You can load your API base from Vite env
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://libra-x-website-api.vercel.app";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
 const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) => {
   const navigate = useNavigate();
@@ -22,27 +21,31 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
     startNfcReading();
   }, []);
 
-  const logAttendance = async (name: string, readerNo: number) => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/attendance/log`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include", // if you use cookies or sessions
-        body: JSON.stringify({
-          name,
-          readerNo,
-          timestamp: new Date().toISOString(),
-        }),
-      });
+  // ✅ Step 1: Scan API (verify user)
+  const scanUser = async (nfc_uid: string) => {
+    const res = await fetch(`${API_BASE_URL}/api/attendance/scan`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nfc_uid }),
+    });
 
-      if (!res.ok) throw new Error(`API responded with ${res.status}`);
+    if (!res.ok) throw new Error(`Scan API responded with ${res.status}`);
+    const data = await res.json();
+    if (!data.success) throw new Error(data.message || "User not found");
 
-      console.log("✅ Attendance logged successfully");
-    } catch (error) {
-      console.error("❌ Failed to log attendance:", error);
-    }
+    return data.user; // { user_id, first_name, last_name, role, nfc_uid }
+  };
+
+  // ✅ Step 2: Log API (insert attendance)
+  const logAttendance = async (user_id: string, nfc_uid: string, reader_number: number) => {
+    const res = await fetch(`${API_BASE_URL}/api/attendance/log`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id, nfc_uid, reader_number }),
+    });
+
+    if (!res.ok) throw new Error(`Log API responded with ${res.status}`);
+    return await res.json();
   };
 
   const startNfcReading = async () => {
@@ -58,33 +61,41 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
 
         ndef.onreading = async (event: any) => {
           const decoder = new TextDecoder();
+
           for (const record of event.message.records) {
-            const payload = decoder.decode(record.data);
-            console.log("🔹 NFC payload:", payload);
+            const nfc_uid = decoder.decode(record.data).trim();
+            console.log("🔹 NFC UID detected:", nfc_uid);
 
-            const fakeUser = {
-              name: payload || "Juan Dela Cruz",
-              readerNo: Math.floor(Math.random() * 100),
-            };
+            try {
+              // Step 1: Verify user
+              const user = await scanUser(nfc_uid);
 
-            setUserName(fakeUser.name);
-            setReaderNumber(fakeUser.readerNo);
+              // Step 2: Log attendance
+              const reader_number = Math.floor(Math.random() * 100);
+              await logAttendance(user.user_id, user.nfc_uid, reader_number);
 
-            await logAttendance(fakeUser.name, fakeUser.readerNo); // 🧠 <— Log to backend here
+              // Update UI
+              setUserName(`${user.first_name} ${user.last_name}`);
+              setReaderNumber(reader_number);
+              setNfcSuccess(true);
+              setIsReading(false);
 
-            onSuccess?.(fakeUser.name, fakeUser.readerNo);
-            setNfcSuccess(true);
-            setIsReading(false);
+              onSuccess?.(`${user.first_name} ${user.last_name}`, reader_number);
+            } catch (err) {
+              console.error("❌ Scan or log failed:", err);
+              setNfcFailed(true);
+              setIsReading(false);
+            }
           }
         };
 
         ndef.onreadingerror = () => {
-          console.error("❌ NFC read error");
+          console.error("❌ NFC reading error");
           setNfcFailed(true);
           setIsReading(false);
         };
       } else {
-        console.warn("⚠️ Web NFC not supported. Using simulation.");
+        console.warn("⚠️ Web NFC not supported — simulating...");
         await simulateNfcFallback();
       }
     } catch (error) {
@@ -94,21 +105,19 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
     }
   };
 
-  // 🧩 Fallback simulation for browsers without NFC
+  // 🧩 Fallback Simulation
   const simulateNfcFallback = async () => {
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    const success = Math.random() < 0.7;
+    await new Promise((resolve) => setTimeout(resolve, 1500));
 
-    if (success) {
-      const fakeUser = { name: "Juan Dela Cruz", readerNo: 42 };
-      setUserName(fakeUser.name);
-      setReaderNumber(fakeUser.readerNo);
+    try {
+      const user = await scanUser("SIMULATED_UID_123");
+      const reader_number = 42;
+      await logAttendance(user.user_id, user.nfc_uid, reader_number);
 
-      await logAttendance(fakeUser.name, fakeUser.readerNo); // 🧠 <— Also logs here
-
-      onSuccess?.(fakeUser.name, fakeUser.readerNo);
+      setUserName(`${user.first_name} ${user.last_name}`);
+      setReaderNumber(reader_number);
       setNfcSuccess(true);
-    } else {
+    } catch {
       setNfcFailed(true);
     }
 
@@ -126,55 +135,43 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
     navigate("/");
   };
 
+  // === UI rendering below stays same ===
   return (
-    <div className={styles.modalOverlay} onClick={(e) => e.target === e.currentTarget && handleCloseAll()}>
-      {/* 🔹 Reading */}
+    <div
+      className={styles.modalOverlay}
+      onClick={(e) => e.target === e.currentTarget && handleCloseAll()}
+    >
       {isReading && !nfcSuccess && !nfcFailed && (
         <div className={styles.nfcCard}>
           <h2 className={styles.readyTitle}>Ready to Scan</h2>
           <div className={styles.nfcIcon}></div>
-          <p className={styles.instruction}>Tap your NFC ID card to record attendance</p>
-          <button className={styles.cancelButton} onClick={handleCloseAll}>
-            Cancel
-          </button>
+          <p className={styles.instruction}>Tap your NFC card to record attendance</p>
+          <button className={styles.cancelButton} onClick={handleCloseAll}>Cancel</button>
         </div>
       )}
 
-      {/* 🔹 Failed */}
       {nfcFailed && (
         <div className={styles.failCard}>
           <h2 className={styles.failTitle}>Scan Failed</h2>
-          <div className={styles.failIcon}></div>
-          <p className={styles.failMessage}>Card scanning failed. Do you want to try again?</p>
+          <p className={styles.failMessage}>Could not detect or verify card. Try again?</p>
           <div className={styles.buttonGroup}>
-            <button className={styles.primaryButton} onClick={startNfcReading}>
-              Try Again
-            </button>
-            <button className={styles.cancelButton} onClick={handleCloseAll}>
-              Cancel
-            </button>
+            <button className={styles.primaryButton} onClick={startNfcReading}>Try Again</button>
+            <button className={styles.cancelButton} onClick={handleCloseAll}>Cancel</button>
           </div>
         </div>
       )}
 
-      {/* 🔹 Success */}
       {nfcSuccess && (
         <div className={styles.modalContent}>
-          <button className={styles.closeButton} onClick={handleCloseAll} aria-label="Close modal">
-            ×
-          </button>
-
+          <button className={styles.closeButton} onClick={handleCloseAll}>×</button>
           <div className={styles.contentWrapper}>
             <div className={styles.successIcon}>✅</div>
             <h2 className={styles.title}>Attendance Recorded</h2>
             <p className={styles.welcomeMessage}>Welcome, {userName}</p>
-            <div className={styles.readerInfo}>📖 You are Reader #{readerNumber} today</div>
-
-            <div className={styles.buttonGroup}>
-              <button className={styles.secondaryButton} onClick={handleContinueBrowsing}>
-                Continue Browsing
-              </button>
-            </div>
+            <div className={styles.readerInfo}>📖 You are Reader #{readerNumber}</div>
+            <button className={styles.secondaryButton} onClick={handleContinueBrowsing}>
+              Continue Browsing
+            </button>
           </div>
         </div>
       )}
