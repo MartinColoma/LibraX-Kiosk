@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import styles from "./AttendanceNFC.module.css";
 
@@ -7,7 +7,7 @@ interface NFCReaderModalProps {
   onSuccess?: (userName: string, readerNumber: number) => void;
 }
 
-// Render API base URL (set in environment variables)
+// Render API base URL
 const API_BASE_URL = "https://librax-kiosk-api.onrender.com";
 
 const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) => {
@@ -20,17 +20,16 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
   const [scannedUid, setScannedUid] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>("");
 
+  // Ref to prevent duplicate scans
+  const lastScannedRef = useRef<{ uid: string; timestamp: number } | null>(null);
+
   useEffect(() => {
     startNfcReading();
   }, []);
 
   // Call Render API
   const scanAndLog = async (nfc_uid: string) => {
-    console.log("📤 Sending to API:", nfc_uid);
-
     const apiUrl = `${API_BASE_URL}/attendance/record`;
-    console.log("🌐 API URL:", apiUrl);
-
     const res = await fetch(apiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -38,12 +37,7 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
     });
 
     const data = await res.json();
-    console.log("📥 API Response:", data);
-
-    if (!res.ok || !data.success) {
-      throw new Error(data.message || "Failed to record attendance");
-    }
-
+    if (!res.ok || !data.success) throw new Error(data.message || "Failed to record attendance");
     return data;
   };
 
@@ -59,13 +53,20 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
       if ("NDEFReader" in window) {
         const ndef = new (window as any).NDEFReader();
         await ndef.scan();
-        console.log("✅ NFC scanning started...");
 
         ndef.onreading = async (event: any) => {
           const nfc_uid = event.serialNumber;
-          setScannedUid(nfc_uid);
-          console.log("🔹 NFC UID detected:", nfc_uid, event);
 
+          // Prevent duplicates within 2 seconds
+          const now = Date.now();
+          if (lastScannedRef.current && lastScannedRef.current.uid === nfc_uid && now - lastScannedRef.current.timestamp < 2000) {
+            console.log("Duplicate scan ignored:", nfc_uid);
+            return;
+          }
+          lastScannedRef.current = { uid: nfc_uid, timestamp: now };
+
+
+          setScannedUid(nfc_uid);
           try {
             const result = await scanAndLog(nfc_uid);
             const fullName = `${result.user.first_name} ${result.user.last_name}`;
@@ -99,13 +100,12 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
     }
   };
 
-  // Fallback simulation for unsupported devices
+  // Fallback for unsupported devices
   const simulateFallback = async () => {
     await new Promise((r) => setTimeout(r, 1000));
     try {
       const result = await scanAndLog("SIMULATED_UID_123");
-      const fullName = `${result.user.first_name} ${result.user.last_name}`;
-      setUserName(fullName);
+      setUserName(`${result.user.first_name} ${result.user.last_name}`);
       setReaderNumber(result.reader_number);
       setScannedUid(result.scannedUid);
       setNfcSuccess(true);
@@ -148,9 +148,7 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
       {nfcFailed && (
         <div className={styles.failCard}>
           <h2 className={styles.failTitle}>Scan Failed</h2>
-          <p className={styles.failMessage}>
-            {errorMessage || "Could not detect or verify card. Try again?"}
-          </p>
+          <p className={styles.failMessage}>{errorMessage || "Could not detect or verify card. Try again?"}</p>
           {scannedUid && <p className={styles.scannedUid}>Last UID: {scannedUid}</p>}
           <div className={styles.buttonGroup}>
             <button className={styles.primaryButton} onClick={startNfcReading}>Try Again</button>
