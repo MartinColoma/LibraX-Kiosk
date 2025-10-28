@@ -7,7 +7,8 @@ interface NFCReaderModalProps {
   onSuccess?: (userName: string, readerNumber: number) => void;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+// Render API base URL (set in environment variables)
+const API_BASE_URL = "https://librax-kiosk-api.onrender.com";
 
 const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) => {
   const navigate = useNavigate();
@@ -23,10 +24,11 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
     startNfcReading();
   }, []);
 
+  // Call Render API
   const scanAndLog = async (nfc_uid: string) => {
     console.log("📤 Sending to API:", nfc_uid);
 
-    const apiUrl = `https://${API_BASE_URL}/api/attendance/record`;
+    const apiUrl = `${API_BASE_URL}/attendance/record`;
     console.log("🌐 API URL:", apiUrl);
 
     const res = await fetch(apiUrl, {
@@ -41,9 +43,11 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
     if (!res.ok || !data.success) {
       throw new Error(data.message || "Failed to record attendance");
     }
+
     return data;
   };
 
+  // Start NFC reading
   const startNfcReading = async () => {
     setIsReading(true);
     setNfcSuccess(false);
@@ -60,8 +64,7 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
         ndef.onreading = async (event: any) => {
           const nfc_uid = event.serialNumber;
           setScannedUid(nfc_uid);
-          console.log("🔹 NFC UID detected:", nfc_uid);
-          console.log("🔹 Full event:", event);
+          console.log("🔹 NFC UID detected:", nfc_uid, event);
 
           try {
             const result = await scanAndLog(nfc_uid);
@@ -70,8 +73,6 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
             setReaderNumber(result.reader_number);
             setNfcSuccess(true);
             setIsReading(false);
-            // Delay calling onSuccess until user clicks continue
-            // onSuccess?.(fullName, result.reader_number);  <-- REMOVE here
           } catch (err: any) {
             console.error("❌ Scan or log failed:", err);
             setErrorMessage(err.message || "Unknown error");
@@ -98,6 +99,7 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
     }
   };
 
+  // Fallback simulation for unsupported devices
   const simulateFallback = async () => {
     await new Promise((r) => setTimeout(r, 1000));
     try {
@@ -126,7 +128,6 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
   };
 
   const handleContinueBrowsing = () => {
-    // Fire onSuccess now after confirmation
     onSuccess?.(userName || "", readerNumber || 1);
     handleCloseAll();
     navigate("/");

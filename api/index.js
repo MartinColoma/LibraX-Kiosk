@@ -1,10 +1,10 @@
-import express from "express";
-import dotenv from "dotenv";
+const express = require("express");
+const cors = require("cors");
+const dotenv = require("dotenv");
 
-// Load environment variables
 dotenv.config();
 
-import attendanceRoutes from "./routes/attendance.js";
+const attendanceRoutes = require("./routes/attendance");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -12,12 +12,24 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(express.json());
 
+// CORS setup
+const corsOptions = {
+  origin: [
+    "http://localhost:5173",               // dev frontend
+    "https://librax-kiosk.onrender.com"    // production frontend
+  ],
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+};
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions)); // handle preflight requests
+
 // Routes
 app.use("/attendance", attendanceRoutes);
 
-// Root endpoint
+// Health check
 app.get("/", (req, res) => {
-  res.json({ message: "LibraX-Kiosk API running" });
+  res.json({ message: "LibraX-Kiosk API running on Render" });
 });
 
 // Start server
