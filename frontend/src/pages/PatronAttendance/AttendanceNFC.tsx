@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+//import { useNavigate } from "react-router-dom";
 import styles from "./AttendanceNFC.module.css";
 
 interface NFCReaderModalProps {
@@ -11,7 +11,7 @@ interface NFCReaderModalProps {
 const API_BASE_URL = "https://librax-kiosk-api.onrender.com";
 
 const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) => {
-  const navigate = useNavigate();
+  //const navigate = useNavigate();
   const [isReading, setIsReading] = useState(true);
   const [nfcSuccess, setNfcSuccess] = useState(false);
   const [nfcFailed, setNfcFailed] = useState(false);
@@ -130,7 +130,7 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
   const handleContinueBrowsing = () => {
     onSuccess?.(userName || "", readerNumber || 1);
     handleCloseAll();
-    navigate("/");
+    // navigate("/");
   };
 
   return (
