@@ -62,5 +62,34 @@ LibraX-Kiosk
 │   ├── tsconfig.json
 │   ├── tsconfig.node.json
 │   └── vite.config.ts
+├── my-api-worker
+│   ├── .gitignore
+│   ├── .wrangler
+│   │   ├── state
+│   │   │   └── v3
+│   │   │       ├── cache
+│   │   │       │   └── miniflare-CacheObject
+│   │   │       └── workflows
+│   │   └── tmp
+│   │       ├── bundle-YnJTPU
+│   │       │   ├── middleware-insertion-facade.js
+│   │       │   └── middleware-loader.entry.ts
+│   │       └── dev-QqMxcC
+│   │           ├── index.js
+│   │           └── index.js.map
+│   ├── README.md
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── src
+│   │   ├── endpoints
+│   │   │   ├── taskCreate.ts
+│   │   │   ├── taskDelete.ts
+│   │   │   ├── taskFetch.ts
+│   │   │   └── taskList.ts
+│   │   ├── index.ts
+│   │   └── types.ts
+│   ├── tsconfig.json
+│   ├── worker-configuration.d.ts
+│   └── wrangler.jsonc
 ├── package-lock.json
 └── package.json
