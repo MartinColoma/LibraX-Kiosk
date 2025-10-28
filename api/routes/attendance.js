@@ -25,7 +25,7 @@ router.post("/record", async (req, res) => {
     if (userError || !user)
       return res.status(404).json({ success: false, message: "User not found" });
 
-    // Step 2: Get latest reader_number for today
+    // Step 2: Find latest reader_number for today
     const today = new Date().toISOString().slice(0, 10);
     const { data: latest } = await supabase
       .from("attendance")
