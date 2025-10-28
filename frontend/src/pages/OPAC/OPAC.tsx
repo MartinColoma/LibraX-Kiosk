@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Search } from 'lucide-react';
 import styles from './OPAC.module.css';
+import Chatbot from './modals/Chatbot/Chatbot';
 
 interface Book {
   id: number;
@@ -54,7 +55,6 @@ export default function OPAC() {
     const value = e.target.value;
     setQuery(value);
 
-    // Simulate dynamic search filtering
     if (value.trim() === '') {
       setResults([]);
     } else {
@@ -149,6 +149,9 @@ export default function OPAC() {
           </div>
         )}
       </main>
+
+      {/* Render Chatbot */}
+      <Chatbot />
     </div>
   );
 }
