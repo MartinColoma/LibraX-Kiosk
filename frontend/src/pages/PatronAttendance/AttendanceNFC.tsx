@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from "react";
-//import { useNavigate } from "react-router-dom";
 import styles from "./AttendanceNFC.module.css";
 
 interface NFCReaderModalProps {
@@ -7,27 +6,26 @@ interface NFCReaderModalProps {
   onSuccess?: (userName: string, readerNumber: number) => void;
 }
 
-// Render API base URL
 const API_BASE_URL = "https://librax-kiosk-api.onrender.com";
 
 const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) => {
-  //const navigate = useNavigate();
   const [isReading, setIsReading] = useState(true);
   const [nfcSuccess, setNfcSuccess] = useState(false);
   const [nfcFailed, setNfcFailed] = useState(false);
+  const [showManualInput, setShowManualInput] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
   const [readerNumber, setReaderNumber] = useState<number | null>(null);
   const [scannedUid, setScannedUid] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const [manualIdInput, setManualIdInput] = useState<string>("");
 
-  // Ref to prevent duplicate scans
   const lastScannedRef = useRef<{ uid: string; timestamp: number } | null>(null);
 
   useEffect(() => {
     startNfcReading();
   }, []);
 
-  // Call Render API
+  // Call Render API for NFC scan
   const scanAndLog = async (nfc_uid: string) => {
     const apiUrl = `${API_BASE_URL}/attendance/record`;
     const res = await fetch(apiUrl, {
@@ -41,11 +39,25 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
     return data;
   };
 
-  // Start NFC reading
+  // Call Render API for manual ID input
+  const manualAttendance = async (student_id: string) => {
+    const apiUrl = `${API_BASE_URL}/attendance/manual`;
+    const res = await fetch(apiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ student_id }),
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.message || "Failed to record attendance");
+    return data;
+  };
+
   const startNfcReading = async () => {
     setIsReading(true);
     setNfcSuccess(false);
     setNfcFailed(false);
+    setShowManualInput(false);
     setScannedUid(null);
     setErrorMessage("");
 
@@ -57,14 +69,12 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
         ndef.onreading = async (event: any) => {
           const nfc_uid = event.serialNumber;
 
-          // Prevent duplicates within 2 seconds
           const now = Date.now();
           if (lastScannedRef.current && lastScannedRef.current.uid === nfc_uid && now - lastScannedRef.current.timestamp < 2000) {
             console.log("Duplicate scan ignored:", nfc_uid);
             return;
           }
           lastScannedRef.current = { uid: nfc_uid, timestamp: now };
-
 
           setScannedUid(nfc_uid);
           try {
@@ -100,7 +110,6 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
     }
   };
 
-  // Fallback for unsupported devices
   const simulateFallback = async () => {
     await new Promise((r) => setTimeout(r, 1000));
     try {
@@ -117,31 +126,92 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
     setIsReading(false);
   };
 
+  const handleManualInputClick = () => {
+    setShowManualInput(true);
+    setIsReading(false);
+  };
+
+  const handleManualConfirm = async () => {
+    if (!manualIdInput.trim()) {
+      setErrorMessage("Please enter an ID number");
+      return;
+    }
+
+    try {
+      const result = await manualAttendance(manualIdInput.trim());
+      const fullName = `${result.user.first_name} ${result.user.last_name}`;
+      setUserName(fullName);
+      setReaderNumber(result.reader_number);
+      setNfcSuccess(true);
+      setShowManualInput(false);
+    } catch (err: any) {
+      console.error("❌ Manual attendance failed:", err);
+      setErrorMessage(err.message || "Failed to record attendance");
+      setNfcFailed(true);
+      setShowManualInput(false);
+    }
+  };
+
   const handleCloseAll = () => {
     setNfcFailed(false);
     setNfcSuccess(false);
+    setShowManualInput(false);
     setScannedUid(null);
     setErrorMessage("");
     setUserName(null);
     setReaderNumber(null);
+    setManualIdInput("");
     onClose();
   };
 
   const handleContinueBrowsing = () => {
     onSuccess?.(userName || "", readerNumber || 1);
     handleCloseAll();
-    // navigate("/");
   };
 
   return (
     <div className={styles.modalOverlay} onClick={(e) => e.target === e.currentTarget && handleCloseAll()}>
-      {isReading && !nfcSuccess && !nfcFailed && (
+      {isReading && !nfcSuccess && !nfcFailed && !showManualInput && (
         <div className={styles.nfcCard}>
           <h2 className={styles.readyTitle}>Ready to Scan</h2>
           <div className={styles.nfcIcon}></div>
           <p className={styles.instruction}>Tap your NFC card to record attendance</p>
           {scannedUid && <p className={styles.scannedUid}>Scanned UID: {scannedUid}</p>}
+          <p className={styles.manualInputLink}>
+            No physical ID? Input your student/faculty ID number{" "}
+            <span className={styles.linkText} onClick={handleManualInputClick}>
+              here
+            </span>
+          </p>
           <button className={styles.cancelButton} onClick={handleCloseAll}>Cancel</button>
+        </div>
+      )}
+
+      {showManualInput && (
+        <div className={styles.manualInputCard}>
+          <h2 className={styles.manualTitle}>Input your ID Number Here</h2>
+          <div className={styles.inputGroup}>
+            <label className={styles.inputLabel}>Student/Faculty ID No:</label>
+            <input
+              type="text"
+              className={styles.manualInput}
+              placeholder="Enter your ID number"
+              value={manualIdInput}
+              onChange={(e) => setManualIdInput(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <div className={styles.buttonGroup}>
+            <button className={styles.cancelButton} onClick={() => {
+              setShowManualInput(false);
+              setIsReading(true);
+            }}>
+              Cancel
+            </button>
+            <button className={styles.primaryButton} onClick={handleManualConfirm}>
+              Confirm
+            </button>
+          </div>
         </div>
       )}
 
