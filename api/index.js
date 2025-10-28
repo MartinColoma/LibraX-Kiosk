@@ -4,8 +4,7 @@ const dotenv = require("dotenv");
 
 dotenv.config();
 
-const attendanceRoutes = require("./routes/attendance");
-
+const attendanceRouter = require("./attendance"); 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -25,7 +24,7 @@ app.use(cors(corsOptions));
 app.options("*", cors(corsOptions)); // handle preflight requests
 
 // Routes
-app.use("/attendance", attendanceRoutes);
+app.use("/attendance", attendanceRouter);
 
 // Health check
 app.get("/", (req, res) => {
