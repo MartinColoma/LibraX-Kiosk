@@ -23,9 +23,12 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
   // 🟢 Automatically request scan when modal opens
   useEffect(() => {
     initiateScanRequest();
+    return () => {
+      cancelScanRequest(); // Cleanup when closing modal
+    };
   }, []);
 
-  // 🟢 Start polling when we have a scan request
+  // 🟢 Start polling when scan request created
   useEffect(() => {
     if (scanRequestId) {
       startPollingScanStatus(scanRequestId);
@@ -66,9 +69,25 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
     }
   };
 
+  const cancelScanRequest = async () => {
+    if (!scanRequestId) return;
+    try {
+      console.log(`🛑 Cancelling scan request ID: ${scanRequestId}`);
+      await fetch(`${API_BASE_URL}/attendance/cancel-request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId: scanRequestId }),
+      });
+    } catch (err) {
+      console.warn("⚠️ Failed to cancel scan request (might already be cleared):", err);
+    } finally {
+      setScanRequestId(null);
+      if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+    }
+  };
+
   const startPollingScanStatus = (requestId: string) => {
     if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
-
     console.log("🔄 Starting polling for scan status...");
 
     pollingIntervalRef.current = setInterval(async () => {
@@ -76,16 +95,13 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
         const res = await fetch(`${API_BASE_URL}/attendance/scan-status?requestId=${requestId}`);
         const data = await res.json();
 
-        if (!res.ok || !data.success) {
-          console.warn("⚠️ No valid scan request found or not ready yet.");
-          return;
-        }
+        if (!res.ok || !data.success) return;
 
         const request = data.request;
         if (!request) return;
 
         if (request.status === "pending") {
-          console.log("⏸️ Scan still pending...");
+          console.log("⏸️ Waiting for card scan...");
           return;
         }
 
@@ -100,8 +116,8 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
               setScannedUid(result.scannedUid);
               setNfcSuccess(true);
               setNfcFailed(false);
-              console.log("🎉 Attendance recorded for:", fullName);
               onSuccess?.(fullName, result.reader_number);
+              console.log("🎉 Attendance recorded for:", fullName);
             } else {
               throw new Error("Invalid response data");
             }
@@ -110,7 +126,6 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
             setErrorMessage("Failed to read scan data");
             setNfcFailed(true);
           }
-
           if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
         }
       } catch (err) {
@@ -130,12 +145,14 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
     return data;
   };
 
-  const handleManualInputClick = () => {
+  // 🟡 When clicking "here" -> cancel scan & show manual input
+  const handleManualInputClick = async () => {
+    await cancelScanRequest();
     setShowManualInput(true);
-    if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
     setNfcFailed(false);
   };
 
+  // 🟢 Manual confirm
   const handleManualConfirm = async () => {
     if (!manualIdInput.trim()) {
       setErrorMessage("Please enter an ID number");
@@ -157,8 +174,15 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
     }
   };
 
-  const handleCloseAll = () => {
-    if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+  // 🟡 Cancel inside manual input -> restart scanning
+  const handleManualCancel = async () => {
+    setShowManualInput(false);
+    await initiateScanRequest();
+  };
+
+  // 🟥 Cancel whole modal
+  const handleCloseAll = async () => {
+    await cancelScanRequest();
     setNfcFailed(false);
     setNfcSuccess(false);
     setShowManualInput(false);
@@ -176,7 +200,10 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
   };
 
   return (
-    <div className={styles.modalOverlay} onClick={(e) => e.target === e.currentTarget && handleCloseAll()}>
+    <div
+      className={styles.modalOverlay}
+      onClick={(e) => e.target === e.currentTarget && handleCloseAll()}
+    >
       {!nfcSuccess && !showManualInput && !nfcFailed && (
         <div className={styles.nfcCard}>
           <h2 className={styles.readyTitle}>Ready to Scan</h2>
@@ -208,7 +235,7 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
             />
           </div>
           <div className={styles.buttonGroup}>
-            <button className={styles.cancelButton} onClick={() => setShowManualInput(false)}>
+            <button className={styles.cancelButton} onClick={handleManualCancel}>
               Cancel
             </button>
             <button className={styles.primaryButton} onClick={handleManualConfirm}>
@@ -221,18 +248,26 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
       {nfcFailed && !showManualInput && (
         <div className={styles.failCard}>
           <h2 className={styles.failTitle}>Scan Failed</h2>
-          <p className={styles.failMessage}>{errorMessage || "Could not detect or verify card. Try again?"}</p>
+          <p className={styles.failMessage}>
+            {errorMessage || "Could not detect or verify card. Try again?"}
+          </p>
           {scannedUid && <p className={styles.scannedUid}>Last UID: {scannedUid}</p>}
           <div className={styles.buttonGroup}>
-            <button className={styles.primaryButton} onClick={initiateScanRequest}>Try Again</button>
-            <button className={styles.cancelButton} onClick={handleCloseAll}>Cancel</button>
+            <button className={styles.primaryButton} onClick={initiateScanRequest}>
+              Try Again
+            </button>
+            <button className={styles.cancelButton} onClick={handleCloseAll}>
+              Cancel
+            </button>
           </div>
         </div>
       )}
 
       {nfcSuccess && (
         <div className={styles.modalContent}>
-          <button className={styles.closeButton} onClick={handleCloseAll}>×</button>
+          <button className={styles.closeButton} onClick={handleCloseAll}>
+            ×
+          </button>
           <div className={styles.contentWrapper}>
             <div className={styles.successIcon}>✅</div>
             <h2 className={styles.title}>Attendance Recorded</h2>
