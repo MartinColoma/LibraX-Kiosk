@@ -124,7 +124,7 @@ router.post("/manual", async (req, res) => {
 });
 
 // -------------------------------
-// POST /attendance/request-scan - Create new scan request (limit to one pending)
+// POST /attendance/request-scan
 // -------------------------------
 router.post("/request-scan", async (req, res) => {
   try {
@@ -142,7 +142,6 @@ router.post("/request-scan", async (req, res) => {
       .single();
 
     if (existing && !existingError) {
-      // Return existing pending request (do not create new)
       return res.json({
         success: true,
         message: "Pending scan already exists",
@@ -151,7 +150,7 @@ router.post("/request-scan", async (req, res) => {
       });
     }
 
-    // Otherwise, create a new one
+    // Otherwise, create new one
     const { data, error } = await supabase
       .from("scan_requests")
       .insert([{ session_id: sessionId, status: "pending" }])
@@ -192,7 +191,6 @@ router.post("/scan-result", async (req, res) => {
     if (!requestId || !nfc_uid)
       return res.status(400).json({ success: false, message: "Missing requestId or nfc_uid" });
 
-    // Find user by NFC UID
     const { data: user, error: userError } = await supabase
       .from("users")
       .select("user_id, first_name, last_name, nfc_uid, role, student_faculty_id")
@@ -202,7 +200,6 @@ router.post("/scan-result", async (req, res) => {
     if (!user || userError)
       return res.status(404).json({ success: false, message: "User not found" });
 
-    // Generate next reader number
     const today = new Date().toISOString().slice(0, 10);
     const { data: latest } = await supabase
       .from("attendance")
@@ -215,7 +212,6 @@ router.post("/scan-result", async (req, res) => {
 
     const new_reader_number = latest?.reader_number ? latest.reader_number + 1 : 1;
 
-    // Insert attendance record
     const { error: insertError } = await supabase
       .from("attendance")
       .insert([{
@@ -228,7 +224,6 @@ router.post("/scan-result", async (req, res) => {
     if (insertError)
       return res.status(500).json({ success: false, message: "Failed to record attendance" });
 
-    // Update scan request
     const fullResponse = {
       user,
       reader_number: new_reader_number,
@@ -256,7 +251,7 @@ router.post("/scan-result", async (req, res) => {
 });
 
 // -------------------------------
-// GET /attendance/scan-status?requestId=123
+// GET /attendance/scan-status
 // -------------------------------
 router.get("/scan-status", async (req, res) => {
   try {
@@ -277,6 +272,26 @@ router.get("/scan-status", async (req, res) => {
   } catch (err) {
     console.error("Scan status error:", err.message);
     return res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// -------------------------------
+// ⚡ NEW: GET /attendance/clear-pending
+// -------------------------------
+router.get("/clear-pending", async (req, res) => {
+  try {
+    const { error } = await supabase
+      .from("scan_requests")
+      .delete()
+      .eq("status", "pending");
+
+    if (error)
+      return res.status(500).json({ success: false, message: "Failed to clear pending requests" });
+
+    res.json({ success: true, message: "All pending scan requests cleared" });
+  } catch (err) {
+    console.error("Clear-pending error:", err.message);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
