@@ -44,6 +44,27 @@ useEffect(() => {
     };
   }, [scanRequestId]);
 
+    // 🧹 Clear any existing or stuck scan requests before starting a new one
+  const clearOldScanRequests = async () => {
+    try {
+      console.log("🧹 Clearing old scan requests...");
+      const res = await fetch(`${API_BASE_URL}/attendance/clear-old-requests`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: "web-session-1" }), // optional if you track by session
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        console.warn("⚠️ Failed to clear old requests:", data.message || "Unknown error");
+      } else {
+        console.log(`✅ Cleared ${data.clearedCount || 0} old requests`);
+      }
+    } catch (err) {
+      console.warn("⚠️ Could not clear old requests:", err);
+    }
+  };
+
   const initiateScanRequest = async () => {
     try {
       setNfcSuccess(false);
@@ -52,6 +73,9 @@ useEffect(() => {
       setUserName(null);
       setReaderNumber(null);
       setScannedUid(null);
+
+      // 🧹 Make sure no previous requests are pending before creating a new one
+      await clearOldScanRequests();
 
       console.log("📡 Sending new scan request...");
 
@@ -74,6 +98,7 @@ useEffect(() => {
       setNfcFailed(true);
     }
   };
+
 
   const cancelScanRequest = async () => {
     if (!scanRequestId) return;

@@ -299,5 +299,24 @@ router.post("/cancel-request", async (req, res) => {
   }
 });
 
+// Clears old attendance scan requests with status "pending" or "completed"
+
+app.post("/attendance/clear-old-requests", async (req, res) => {
+  try {
+    const { sessionId } = req.body;
+    const cleared = await db.attendanceRequests.deleteMany({
+      where: {
+        OR: [{ status: "pending" }, { status: "completed" }],
+        ...(sessionId ? { sessionId } : {}),
+      },
+    });
+    res.json({ success: true, clearedCount: cleared.count });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Failed to clear old requests" });
+  }
+});
+
+
 
 module.exports = router;
