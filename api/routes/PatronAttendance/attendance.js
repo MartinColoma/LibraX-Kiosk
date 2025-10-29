@@ -202,6 +202,30 @@ router.post("/scan-result", async (req, res) => {
   res.json({ success: true, scan_request: updatedScan[0], attendance: fullResponse });
 });
 
+// -------------------------------
+// GET /attendance/scan-status?requestId=123
+// -------------------------------
+router.get("/scan-status", async (req, res) => {
+  try {
+    const { requestId } = req.query;
+    if (!requestId)
+      return res.status(400).json({ success: false, message: "Missing requestId" });
+
+    const { data, error } = await supabase
+      .from("scan_requests")
+      .select("*")
+      .eq("id", requestId)
+      .single();
+
+    if (error || !data)
+      return res.status(404).json({ success: false, message: "Scan request not found" });
+
+    return res.status(200).json({ success: true, request: data });
+  } catch (err) {
+    console.error("Scan status error:", err.message);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+});
 
 
 module.exports = router;

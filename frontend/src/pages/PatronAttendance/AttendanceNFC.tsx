@@ -10,7 +10,7 @@ const API_BASE_URL = "https://librax-kiosk-api.onrender.com";
 
 const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) => {
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [scanRequestId, setScanRequestId] = useState<string | null>(null); // Now used properly
+  const [scanRequestId, setScanRequestId] = useState<string | null>(null);
   const [nfcSuccess, setNfcSuccess] = useState(false);
   const [nfcFailed, setNfcFailed] = useState(false);
   const [showManualInput, setShowManualInput] = useState(false);
@@ -20,7 +20,12 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [manualIdInput, setManualIdInput] = useState<string>("");
 
-  // New effect that triggers polling when scanRequestId changes
+  // 🟢 Automatically request scan when modal opens
+  useEffect(() => {
+    initiateScanRequest();
+  }, []);
+
+  // 🟢 Start polling whenever scanRequestId changes
   useEffect(() => {
     if (scanRequestId) {
       startPollingScanStatus(scanRequestId);
@@ -30,7 +35,6 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
     };
   }, [scanRequestId]);
 
-  // Modified initiateScanRequest no longer calls polling directly
   const initiateScanRequest = async () => {
     try {
       setNfcSuccess(false);
@@ -40,6 +44,8 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
       setReaderNumber(null);
       setScannedUid(null);
 
+      console.log("📡 Sending new scan request...");
+
       const res = await fetch(`${API_BASE_URL}/attendance/request-scan`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -47,11 +53,14 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
       });
 
       const data = await res.json();
+      console.log("🧾 Scan request response:", data);
+
       if (!res.ok || !data.success) throw new Error(data.message || "Failed to request scan");
 
-      setScanRequestId(data.requestId); // Set state only here; polling happens in useEffect
+      setScanRequestId(data.requestId);
+      console.log(`✅ Scan request started. Request ID: ${data.requestId}`);
     } catch (err: any) {
-      console.error("Failed to create scan request:", err);
+      console.error("❌ Failed to create scan request:", err);
       setErrorMessage(err.message || "Failed to initiate scan request");
       setNfcFailed(true);
     }
@@ -60,20 +69,28 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
   const startPollingScanStatus = (requestId: string) => {
     if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
 
+    console.log("🔄 Starting polling for scan status...");
+
     pollingIntervalRef.current = setInterval(async () => {
       try {
         const res = await fetch(`${API_BASE_URL}/attendance/scan-status?requestId=${requestId}`);
         const data = await res.json();
-        if (res.ok && data.success && data.status === "completed" && data.response) {
-          const result = JSON.parse(data.response);
-          setUserName(`${result.user.first_name} ${result.user.last_name}`);
-          setReaderNumber(result.reader_number);
-          setScannedUid(result.scannedUid);
-          setNfcSuccess(true);
-          if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+
+        if (res.ok && data.success) {
+          if (data.status === "pending") {
+            console.log("⏸️ No pending scan requests.\n");
+          } else if (data.status === "completed" && data.response) {
+            const result = JSON.parse(data.response);
+            setUserName(`${result.user.first_name} ${result.user.last_name}`);
+            setReaderNumber(result.reader_number);
+            setScannedUid(result.scannedUid);
+            setNfcSuccess(true);
+            console.log("✅ Scan completed successfully!");
+            if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+          }
         }
       } catch (err) {
-        console.error("Polling scan status error:", err);
+        console.error("⚠️ Polling scan status error:", err);
       }
     }, 2000);
   };
