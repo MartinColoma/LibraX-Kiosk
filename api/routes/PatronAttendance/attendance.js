@@ -276,23 +276,28 @@ router.get("/scan-status", async (req, res) => {
 });
 
 // -------------------------------
-// ⚡ NEW: GET /attendance/clear-pending
+// POST /attendance/cancel-request
 // -------------------------------
-router.get("/clear-pending", async (req, res) => {
+router.post("/cancel-request", async (req, res) => {
   try {
+    const { requestId } = req.body;
+    if (!requestId)
+      return res.status(400).json({ success: false, message: "Missing requestId" });
+
     const { error } = await supabase
       .from("scan_requests")
       .delete()
-      .eq("status", "pending");
+      .eq("id", requestId);
 
     if (error)
-      return res.status(500).json({ success: false, message: "Failed to clear pending requests" });
+      return res.status(500).json({ success: false, message: "Failed to cancel scan request" });
 
-    res.json({ success: true, message: "All pending scan requests cleared" });
+    res.status(200).json({ success: true, message: "Scan request cancelled" });
   } catch (err) {
-    console.error("Clear-pending error:", err.message);
+    console.error("Cancel request error:", err.message);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
+
 
 module.exports = router;

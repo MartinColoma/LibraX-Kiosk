@@ -21,12 +21,18 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
   const [manualIdInput, setManualIdInput] = useState<string>("");
 
   // 🟢 Automatically request scan when modal opens
-  useEffect(() => {
+  const initialized = useRef(false);
+
+useEffect(() => {
+  if (!initialized.current) {
+    initialized.current = true;
     initiateScanRequest();
-    return () => {
-      cancelScanRequest(); // Cleanup when closing modal
-    };
-  }, []);
+  }
+
+  return () => {
+    cancelScanRequest();
+  };
+}, []);
 
   // 🟢 Start polling when scan request created
   useEffect(() => {
