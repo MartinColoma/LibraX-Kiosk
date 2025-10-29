@@ -25,7 +25,7 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
     initiateScanRequest();
   }, []);
 
-  // 🟢 Start polling whenever scanRequestId changes
+  // 🟢 Start polling when we have a scan request
   useEffect(() => {
     if (scanRequestId) {
       startPollingScanStatus(scanRequestId);
@@ -76,18 +76,42 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
         const res = await fetch(`${API_BASE_URL}/attendance/scan-status?requestId=${requestId}`);
         const data = await res.json();
 
-        if (res.ok && data.success) {
-          if (data.status === "pending") {
-            console.log("⏸️ No pending scan requests.\n");
-          } else if (data.status === "completed" && data.response) {
-            const result = JSON.parse(data.response);
-            setUserName(`${result.user.first_name} ${result.user.last_name}`);
-            setReaderNumber(result.reader_number);
-            setScannedUid(result.scannedUid);
-            setNfcSuccess(true);
-            console.log("✅ Scan completed successfully!");
-            if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+        if (!res.ok || !data.success) {
+          console.warn("⚠️ No valid scan request found or not ready yet.");
+          return;
+        }
+
+        const request = data.request;
+        if (!request) return;
+
+        if (request.status === "pending") {
+          console.log("⏸️ Scan still pending...");
+          return;
+        }
+
+        if (request.status === "completed" && request.response) {
+          console.log("✅ Scan completed successfully!");
+          try {
+            const result = JSON.parse(request.response);
+            if (result?.user) {
+              const fullName = `${result.user.first_name} ${result.user.last_name}`;
+              setUserName(fullName);
+              setReaderNumber(result.reader_number);
+              setScannedUid(result.scannedUid);
+              setNfcSuccess(true);
+              setNfcFailed(false);
+              console.log("🎉 Attendance recorded for:", fullName);
+              onSuccess?.(fullName, result.reader_number);
+            } else {
+              throw new Error("Invalid response data");
+            }
+          } catch (parseErr) {
+            console.error("❌ Failed to parse response JSON:", parseErr);
+            setErrorMessage("Failed to read scan data");
+            setNfcFailed(true);
           }
+
+          if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
         }
       } catch (err) {
         console.error("⚠️ Polling scan status error:", err);
