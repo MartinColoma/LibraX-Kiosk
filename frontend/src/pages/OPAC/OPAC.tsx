@@ -13,6 +13,19 @@ interface Book {
   genre?: string;
   available?: number;
   total?: number;
+  isbn?: string;
+}
+
+interface UserData {
+  user_id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone_number: string;
+  student_faculty_id: string;
+  address: string;
+  date_registered: string;
+  nfc_uid: string;
 }
 
 const searchTypes = [
@@ -32,12 +45,13 @@ export default function OPAC() {
   const [searched, setSearched] = useState(false);
   const [debounceTimer, setDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
 
-  // Request modal states
-  const [showRequestModal, setShowRequestModal] = useState(false);
+  // NFC Scan states
+  const [showScanModal, setShowScanModal] = useState(false);
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
-  const [borrowerData, setBorrowerData] = useState<any>(null);
-  const [requestLoading, setRequestLoading] = useState(false);
-  const [requestMessage, setRequestMessage] = useState('');
+  const [scanRequestId, setScanRequestId] = useState<string | null>(null);
+  const [scanMessage, setScanMessage] = useState('');
+  const [scannedUser, setScannedUser] = useState<UserData | null>(null);
+  const [requestSuccess, setRequestSuccess] = useState(false);
 
   const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSearchType(e.target.value);
@@ -96,51 +110,110 @@ export default function OPAC() {
     setDebounceTimer(timer);
   };
 
-  const openRequestModal = (book: Book) => {
+  // ===== NFC Scan Functions =====
+  const startNFCScan = async (book: Book) => {
     setSelectedBook(book);
-    setShowRequestModal(true);
-    setRequestMessage('');
-    // TODO: In a real app, you'd fetch borrower data from authenticated user
-    setBorrowerData(null);
-  };
+    setShowScanModal(true);
+    setScanMessage('Initiating scan request...');
+    setScannedUser(null);
+    setRequestSuccess(false);
 
-  const closeRequestModal = () => {
-    setShowRequestModal(false);
-    setSelectedBook(null);
-    setBorrowerData(null);
-    setRequestMessage('');
-  };
-
-  const handleRequestBook = async () => {
-    if (!selectedBook || !borrowerData) {
-      setRequestMessage('Please fill in all required information');
-      return;
-    }
-
-    setRequestLoading(true);
     try {
-      const response = await axios.post(
-        `${API_BASE_URL}/books/request`,
-        {
-          user_id: borrowerData.user_id,
-          book_id: selectedBook.book_id
-        }
-      );
+      const sessionId = 'opac_' + Date.now();
+      const response = await axios.post(`${API_BASE_URL}/books/request-scan`, {
+        sessionId,
+        book_id: book.book_id
+      });
 
       if (response.data.success) {
-        setRequestMessage('✅ Book request submitted successfully!');
+        setScanRequestId(response.data.requestId);
+        setScanMessage('Waiting for NFC scan...');
+        pollForScanCompletion(response.data.requestId);
+      } else {
+        setScanMessage('Failed to initiate scan');
+      }
+    } catch (error) {
+      console.error('Scan error:', error);
+      setScanMessage('Error: ' + (error as any).message);
+    }
+  };
+
+  const pollForScanCompletion = (requestId: string) => {
+    let pollCount = 0;
+    const maxPolls = 30; // 60 seconds with 2s interval
+
+    const interval = setInterval(async () => {
+      pollCount++;
+
+      if (pollCount > maxPolls) {
+        clearInterval(interval);
+        setScanMessage('Scan timeout. Please try again.');
+        return;
+      }
+
+      try {
+        const response = await axios.get(
+          `${API_BASE_URL}/books/scan-status?requestId=${requestId}`
+        );
+
+        if (response.data.success && response.data.request.status === 'completed') {
+          clearInterval(interval);
+
+          const responseData = JSON.parse(response.data.request.response || '{}');
+          if (responseData.user) {
+            setScannedUser(responseData.user);
+            setScanMessage('');
+          }
+        }
+      } catch (error) {
+        console.error('Poll error:', error);
+      }
+    }, 2000);
+  };
+
+  const confirmBookRequest = async () => {
+    if (!selectedBook || !scannedUser) return;
+
+    try {
+      const response = await axios.post(`${API_BASE_URL}/books/request`, {
+        nfc_uid: scannedUser.nfc_uid,
+        book_id: selectedBook.book_id
+      });
+
+      if (response.data.success) {
+        setRequestSuccess(true);
+        setScanMessage('✅ Request approved successfully!');
+        
         setTimeout(() => {
-          closeRequestModal();
+          closeScanModal();
+          // Refresh results
+          if (query) performSearch(query);
         }, 2000);
       } else {
-        setRequestMessage('❌ ' + response.data.message);
+        setScanMessage('❌ ' + response.data.message);
       }
     } catch (error) {
       console.error('Request error:', error);
-      setRequestMessage('❌ Failed to submit request. Try again.');
-    } finally {
-      setRequestLoading(false);
+      setScanMessage('❌ Failed to submit request');
     }
+  };
+
+  const closeScanModal = async () => {
+    if (scanRequestId) {
+      try {
+        await axios.post(`${API_BASE_URL}/books/cancel-request`, {
+          requestId: scanRequestId
+        });
+      } catch (error) {
+        console.error('Cancel error:', error);
+      }
+    }
+    setShowScanModal(false);
+    setSelectedBook(null);
+    setScanRequestId(null);
+    setScanMessage('');
+    setScannedUser(null);
+    setRequestSuccess(false);
   };
 
   return (
@@ -254,7 +327,7 @@ export default function OPAC() {
                             : ''
                         }`}
                         disabled={!isAvailable}
-                        onClick={() => openRequestModal(book)}
+                        onClick={() => startNFCScan(book)}
                       >
                         Request Item
                       </button>
@@ -267,62 +340,67 @@ export default function OPAC() {
         )}
       </main>
 
-      {/* Request Modal */}
-      {showRequestModal && selectedBook && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modal}>
+      {/* NFC Scan Modal */}
+      {showScanModal && selectedBook && (
+        <div className={styles.modalOverlay} onClick={closeScanModal}>
+          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
             <h3 className={styles.modalTitle}>Request Details</h3>
 
-            <div className={styles.modalContent}>
-              {/* Book Information */}
-              <div className={styles.section}>
-                <h4 className={styles.sectionTitle}>Book Information</h4>
-                <p><strong>Title:</strong> {selectedBook.title}</p>
-                <p><strong>Author:</strong> {selectedBook.author || 'N/A'}</p>
-                <p><strong>Genre:</strong> {selectedBook.genre || 'N/A'}</p>
-                <p><strong>Publisher:</strong> {selectedBook.publisher || 'N/A'}</p>
-                <p><strong>Language:</strong> English</p>
-                <p><strong>ISBN:</strong> N/A</p>
-                <p><strong>Due Date:</strong> {new Date(new Date().setDate(new Date().getDate() + 30)).toISOString().split('T')[0]}</p>
+            {!scannedUser ? (
+              // Scan Phase
+              <div className={styles.scanPhase}>
+                <div className={styles.nfcIcon}>📱)))</div>
+                <p className={styles.scanStatus}>{scanMessage || 'Waiting for NFC scan...'}</p>
+                <p className={styles.scanHint}>
+                  Please scan your NFC card at the ESP32 kiosk
+                </p>
               </div>
+            ) : (
+              // Details Phase
+              <div className={styles.modalContent}>
+                <div className={styles.section}>
+                  <h4 className={styles.sectionTitle}>Book Information</h4>
+                  <p><strong>Title:</strong> {selectedBook.title}</p>
+                  <p><strong>Author:</strong> {selectedBook.author || 'N/A'}</p>
+                  <p><strong>Genre:</strong> {selectedBook.genre || 'N/A'}</p>
+                  <p><strong>Publisher:</strong> {selectedBook.publisher || 'N/A'}</p>
+                  <p><strong>Language:</strong> English</p>
+                  <p><strong>ISBN:</strong> {selectedBook.isbn || 'N/A'}</p>
+                  <p><strong>Due Date:</strong> {new Date(new Date().setDate(new Date().getDate() + 30)).toISOString().split('T')[0]} (30days)</p>
+                </div>
 
-              {/* Borrower Detail */}
-              <div className={styles.section}>
-                <h4 className={styles.sectionTitle}>Borrower Detail</h4>
-                {borrowerData ? (
-                  <>
-                    <p><strong>Full Name:</strong> {borrowerData.first_name} {borrowerData.last_name}</p>
-                    <p><strong>Student/Faculty ID No.:</strong> {borrowerData.student_faculty_id}</p>
-                    <p><strong>Email Address:</strong> {borrowerData.email}</p>
-                    <p><strong>Phone Number:</strong> {borrowerData.phone_number}</p>
-                    <p><strong>Address:</strong> {borrowerData.address}</p>
-                    <p><strong>Member Since:</strong> {borrowerData.date_registered}</p>
-                  </>
-                ) : (
-                  <p>No borrower data available. Please scan your NFC card first.</p>
+                <div className={styles.section}>
+                  <h4 className={styles.sectionTitle}>Borrower Detail</h4>
+                  <p><strong>Full Name:</strong> {scannedUser.first_name} {scannedUser.last_name}</p>
+                  <p><strong>Student/Faculty ID No.:</strong> {scannedUser.student_faculty_id}</p>
+                  <p><strong>Email Address:</strong> {scannedUser.email}</p>
+                  <p><strong>Phone Number:</strong> {scannedUser.phone_number}</p>
+                  <p><strong>Address:</strong> {scannedUser.address}</p>
+                  <p><strong>Member Since:</strong> {scannedUser.date_registered}</p>
+                </div>
+
+                {requestSuccess && (
+                  <p className={styles.successMessage}>✅ {scanMessage}</p>
                 )}
               </div>
-
-              {/* Message */}
-              {requestMessage && (
-                <p className={styles.message}>{requestMessage}</p>
-              )}
-            </div>
+            )}
 
             <div className={styles.modalActions}>
               <button
                 className={styles.cancelBtn}
-                onClick={closeRequestModal}
+                onClick={closeScanModal}
+                disabled={requestSuccess}
               >
                 Cancel
               </button>
-              <button
-                className={styles.requestBtn}
-                onClick={handleRequestBook}
-                disabled={requestLoading || !borrowerData}
-              >
-                {requestLoading ? 'Requesting...' : 'Request'}
-              </button>
+              {scannedUser && !requestSuccess && (
+                <button
+                  className={styles.requestBtn}
+                  onClick={confirmBookRequest}
+                >
+                  Request
+                </button>
+              )}
             </div>
           </div>
         </div>

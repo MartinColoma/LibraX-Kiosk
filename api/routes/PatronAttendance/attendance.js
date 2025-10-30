@@ -330,5 +330,77 @@ router.post("/clear-old-requests", async (req, res) => {
   }
 });
 
+// ADD THIS FUNCTION TO attendance.js
+// This handles book request scans without affecting attendance functionality
+
+// ===== Helper: Check if scan is for book request =====
+async function handleBookRequestScan(nfc_uid, requestId, supabase) {
+  try {
+    // Get the pending scan request
+    const scanResult = await supabase
+      .from("scan_requests")
+      .select("*")
+      .eq("id", requestId)
+      .single();
+
+    if (!scanResult.data) return null;
+
+    const responseData = JSON.parse(scanResult.data.response || '{}');
+    
+    // Check if this scan has a book_id (meaning it's for book request, not attendance)
+    if (!responseData.book_id) return null;
+
+    // Get user data
+    const userResult = await supabase
+      .from("users")
+      .select("user_id, first_name, last_name, email, phone_number, student_faculty_id, address, date_registered, nfc_uid")
+      .eq("nfc_uid", nfc_uid)
+      .single();
+
+    if (!userResult.data) return null;
+
+    // Prepare book request response
+    const fullResponse = {
+      user: userResult.data,
+      book_id: responseData.book_id,
+      scannedUid: nfc_uid
+    };
+
+    // Update scan request to completed
+    await supabase
+      .from("scan_requests")
+      .update({
+        status: "completed",
+        nfc_uid,
+        response: JSON.stringify(fullResponse)
+      })
+      .eq("id", requestId);
+
+    return fullResponse;
+  } catch (error) {
+    console.error("Book request scan error:", error);
+    return null;
+  }
+}
+
+// ===== IN YOUR SCAN-RESULT ROUTE, ADD THIS AT THE TOP =====
+// Place this BEFORE the attendance insert logic
+
+// Check if this is a book request scan
+const bookRequestResult = await handleBookRequestScan(nfc_uid, requestId, supabase);
+if (bookRequestResult) {
+  console.log("[Book Request Scan] Processing book request for:", bookRequestResult.user.first_name);
+  return res.json({ 
+    success: true, 
+    type: "book_request",
+    scan_request: bookRequestResult,
+    message: "Book request scan completed"
+  });
+}
+
+// If not book request, continue with normal attendance flow...
+// (rest of your attendance code stays the same)
+
+
 
 module.exports = router;
