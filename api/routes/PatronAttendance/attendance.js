@@ -304,20 +304,31 @@ router.post("/cancel-request", async (req, res) => {
 router.post("/clear-old-requests", async (req, res) => {
   try {
     const { sessionId } = req.body;
-    const cleared = await db.attendanceRequests.deleteMany({
-      where: {
-        OR: [{ status: "pending" }, { status: "completed" }],
-        ...(sessionId ? { sessionId } : {}),
-      },
-    });
-    res.json({ success: true, clearedCount: cleared.count });
+
+    let query = supabase
+      .from("scan_requests")
+      .delete()
+      .or('status.eq.pending,status.eq.completed');
+
+    // If sessionId is provided, add filter for session_id equal to sessionId
+    if (sessionId) {
+      query = query.eq('session_id', sessionId);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error("Failed to clear old requests:", error.message || error);
+      return res.status(500).json({ success: false, message: "Failed to clear old requests" });
+    }
+
+    // Supabase does not always return a count of deleted rows.
+    res.json({ success: true, clearedCount: data ? data.length : 0 });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: "Failed to clear old requests" });
   }
 });
-
-
 
 
 module.exports = router;
