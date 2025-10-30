@@ -34,7 +34,6 @@ interface UserInfo {
 
 const API_BASE_URL = "https://librax-kiosk-api.onrender.com";
 
-
 const ReturnBooks: React.FC = () => {
   const navigate = useNavigate();
   
@@ -115,6 +114,7 @@ const ReturnBooks: React.FC = () => {
     
     pollingRef.current = setInterval(async () => {
       try {
+        // ✅ FIXED: Use /attendance endpoint for user scan
         const res = await fetch(`${API_BASE_URL}/attendance/scan-status?requestId=${requestId}`);
         const data = await res.json();
         
@@ -213,6 +213,7 @@ const ReturnBooks: React.FC = () => {
 
     try {
       setIsReturning(true);
+      // ✅ FIXED: Use /return-books endpoint
       const res = await fetch(`${API_BASE_URL}/return-books/request-scan`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -247,6 +248,7 @@ const ReturnBooks: React.FC = () => {
     
     returnPollingRef.current = setInterval(async () => {
       try {
+        // ✅ FIXED: Use /return-books endpoint for book scan status
         const res = await fetch(`${API_BASE_URL}/return-books/scan-status?requestId=${requestId}`);
         const data = await res.json();
         
@@ -274,6 +276,7 @@ const ReturnBooks: React.FC = () => {
   const cancelReturn = async () => {
     if (returnScanRequestId) {
       try {
+        // ✅ FIXED: Use /return-books endpoint
         await fetch(`${API_BASE_URL}/return-books/cancel-request`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
