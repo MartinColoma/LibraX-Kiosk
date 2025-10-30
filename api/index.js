@@ -26,7 +26,7 @@ app.options("*", cors(corsOptions)); // handle preflight requests
 
 // Routes
 app.use("/attendance", attendanceRouter);
-app.use("/opac", opacRouter);
+app.use("/opac", opacSearchRouter);
 
 // Health check
 app.get("/", (req, res) => {
