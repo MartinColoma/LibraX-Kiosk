@@ -13,14 +13,13 @@ interface Book {
   genre?: string;
   available?: number;
   total?: number;
-  // Add more fields as needed based on your DB
 }
 
 const searchTypes = [
-  { value: "keyword", label: "Keyword" },
-  { value: "title", label: "Title" },
-  { value: "author", label: "Author" },
-  { value: "subject", label: "Subject" },
+  { value: 'keyword', label: 'Keyword' },
+  { value: 'title', label: 'Title' },
+  { value: 'author', label: 'Author' },
+  { value: 'subject', label: 'Subject' },
 ];
 
 export default function OPAC() {
@@ -52,9 +51,23 @@ export default function OPAC() {
       const { data } = await axios.get(
         `/opac/search?type=${searchType}&query=${encodeURIComponent(value)}`
       );
-      setResults(data); // Should be an array from API
+
+      console.log('API Response:', data); // 🧠 Debug: see what backend returns
+
+      // ✅ Ensure we always set an array (handles both array or object responses)
+      if (Array.isArray(data)) {
+        setResults(data);
+      } else if (data?.results && Array.isArray(data.results)) {
+        setResults(data.results);
+      } else if (data?.data && Array.isArray(data.data)) {
+        setResults(data.data);
+      } else {
+        setResults([]);
+      }
+
       setSearched(true);
-    } catch {
+    } catch (error) {
+      console.error('Search error:', error);
       setResults([]);
       setSearched(true);
     } finally {
@@ -86,8 +99,10 @@ export default function OPAC() {
             value={searchType}
             onChange={handleTypeChange}
           >
-            {searchTypes.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            {searchTypes.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
             ))}
           </select>
 
@@ -110,15 +125,16 @@ export default function OPAC() {
           </button>
         </div>
 
+        {/* === Search Result Section === */}
         {loading ? (
           <p className={styles.searchHint}>Loading...</p>
         ) : !searched && query === '' ? (
-          <p className={styles.searchHint}>Enter a search query to show results</p>
+          <p className={styles.searchHint}>
+            Enter a search query to show results
+          </p>
         ) : (
           <div className={styles.resultsContainer}>
-            <p className={styles.resultCount}>
-              Results: {results.length}
-            </p>
+            <p className={styles.resultCount}>Results: {results.length}</p>
 
             {results.length === 0 ? (
               <p className={styles.searchHint}>No books found.</p>
@@ -129,21 +145,42 @@ export default function OPAC() {
                     <p className={styles.bookType}>Book</p>
                     <h3 className={styles.bookTitle}>{book.title}</h3>
                     <p className={styles.bookMeta}>
-                      Author: {book.author || 'N/A'}<br />
-                      Publisher: {book.publisher || 'N/A'} • {book.publication_year || 'N/A'}<br />
+                      Author: {book.author || 'N/A'}
+                      <br />
+                      Publisher: {book.publisher || 'N/A'} •{' '}
+                      {book.publication_year || 'N/A'}
+                      <br />
                       Genre: {book.genre || 'N/A'}
                     </p>
-                    <p className={book.available && book.available > 0 ? styles.available : styles.notAvailable}>
+                    <p
+                      className={
+                        book.available && book.available > 0
+                          ? styles.available
+                          : styles.notAvailable
+                      }
+                    >
                       {book.available && book.available > 0 ? (
-                        <>✅ <strong>Available:</strong> {book.available} of {book.total ?? '?'} copies remaining</>
+                        <>
+                          ✅ <strong>Available:</strong> {book.available} of{' '}
+                          {book.total ?? '?'} copies remaining
+                        </>
                       ) : (
-                        <>❌ <strong>Not Available:</strong> {book.available ?? 0} of {book.total ?? '?'} copies remaining</>
+                        <>
+                          ❌ <strong>Not Available:</strong>{' '}
+                          {book.available ?? 0} of {book.total ?? '?'} copies
+                          remaining
+                        </>
                       )}
                     </p>
                   </div>
+
                   <div className={styles.bookAction}>
                     <button
-                      className={`${styles.requestBtn} ${!book.available || book.available === 0 ? styles.disabledBtn : ''}`}
+                      className={`${styles.requestBtn} ${
+                        !book.available || book.available === 0
+                          ? styles.disabledBtn
+                          : ''
+                      }`}
                       disabled={!book.available || book.available === 0}
                     >
                       Request Item
