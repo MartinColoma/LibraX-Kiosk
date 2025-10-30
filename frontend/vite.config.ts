@@ -6,6 +6,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/ai-chat': 'http://localhost:3000',
+      '/opac': 'http://localhost:3000',
     },
   },
 });
