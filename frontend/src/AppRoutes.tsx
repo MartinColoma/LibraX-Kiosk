@@ -17,7 +17,7 @@ import AttendanceNFC from './pages/PatronAttendance/AttendanceNFC';
 
 
 //Import Return Book Pages
-
+import ReturnBooks from './pages/ReturnBooks/ReturnBooks';
 
 
 
@@ -44,6 +44,7 @@ const AppRoutes: React.FC = () => {
 
 
                 {/* Return Book Page Routes*/}
+                <Route path="/return-books" element={<ReturnBooks />} />
 
 
 

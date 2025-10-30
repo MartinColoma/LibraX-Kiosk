@@ -1,12 +1,23 @@
-LibraX-Kiosk
+LibraX-Kiosk-Original
 ├── .env
 ├── api
+│   ├── .env
 │   ├── attendance
 │   │   ├── log.ts
 │   │   ├── record.ts
 │   │   └── scan.ts
+│   ├── index.js
 │   ├── package-lock.json
 │   ├── package.json
+│   ├── routes
+│   │   ├── OPAC
+│   │   │   └── opacSearch.js
+│   │   ├── PatronAttendance
+│   │   │   └── attendance.js
+│   │   ├── auth
+│   │   │   └── verify-password.js
+│   │   └── bookrequests
+│   │       └── bookRequests.js
 │   └── utils
 │       └── cors.ts
 ├── frontend
@@ -46,18 +57,20 @@ LibraX-Kiosk
 │   │       │   ├── OPAC.module.css
 │   │       │   ├── OPAC.tsx
 │   │       │   └── modals
-│   │       │       └── Chatbot
-│   │       │           ├── Chatbot.module.css
-│   │       │           └── Chatbot.tsx
+│   │       │       ├── Chatbot
+│   │       │       │   ├── Chatbot.module.css
+│   │       │       │   └── Chatbot.tsx
+│   │       │       └── RequestItem
+│   │       │           ├── RequestItem.module.css
+│   │       │           ├── RequestItem.tsx
+│   │       │           ├── Request_NFC.module.css
+│   │       │           └── Request_NFC.tsx
 │   │       ├── PatronAttendance
 │   │       │   ├── AttendanceNFC.module.css
-│   │       │   ├── AttendanceNFC.tsx
-│   │       │   ├── AttendanceSuccess.module.css
-│   │       │   └── AttendanceSuccess.tsx
+│   │       │   └── AttendanceNFC.tsx
 │   │       └── ReturnBooks
 │   │           ├── ReturnBooks.css
-│   │           ├── ReturnBooks.tsx
-│   │           └── modals
+│   │           └── ReturnBooks.tsx
 │   ├── tsconfig.app.json
 │   ├── tsconfig.json
 │   ├── tsconfig.node.json

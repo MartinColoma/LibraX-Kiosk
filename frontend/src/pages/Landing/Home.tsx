@@ -50,10 +50,7 @@ export default function LibraXKiosk() {
               </button>
 
               {/* Return Books Button */}
-              <button
-                className={`${styles.kioskButton} ${styles.tertiary}`}
-                onClick={() => navigate('/return-books')}
-              >
+              <button onClick={() => navigate('/return-books')}>
                 RETURN BOOK/S
               </button>
             </div>

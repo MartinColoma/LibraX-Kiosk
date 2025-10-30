@@ -31,5 +31,5 @@ def save_directory_structure(root_dir, output_file="directory_structure.txt"):
     print(f"✅ Directory structure saved to: {os.path.abspath(output_file)}")
 
 # === Usage ===
-root_directory = r"C:\Users\Pepper\LibraX-Kiosk"
+root_directory = r"C:\Users\Earl\Documents\Workspaces\LibraX-Kiosk-Original"
 save_directory_structure(root_directory)
