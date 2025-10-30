@@ -30,7 +30,6 @@ export default function OPAC() {
   const [results, setResults] = useState<Book[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
-  const [showUnavailable, setShowUnavailable] = useState(true);
   const [debounceTimer, setDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
 
   const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -92,11 +91,6 @@ export default function OPAC() {
     setDebounceTimer(timer);
   };
 
-  // Filter results based on availability preference
-  const filteredResults = results.filter(book =>
-    showUnavailable || (book.available && book.available > 0)
-  );
-
   return (
     <div className={styles.opacContainer}>
       <header className={styles.opacHeader}>
@@ -147,18 +141,6 @@ export default function OPAC() {
           </button>
         </div>
 
-        {/* Availability Filter Toggle */}
-        <div className={styles.filterOptions}>
-          <label className={styles.checkboxLabel}>
-            <input
-              type="checkbox"
-              checked={showUnavailable}
-              onChange={(e) => setShowUnavailable(e.target.checked)}
-            />
-            Show Unavailable Books
-          </label>
-        </div>
-
         {loading ? (
           <p className={styles.searchHint}>Loading...</p>
         ) : !searched && query === '' ? (
@@ -167,12 +149,12 @@ export default function OPAC() {
           </p>
         ) : (
           <div className={styles.resultsContainer}>
-            <p className={styles.resultCount}>Results: {filteredResults.length}</p>
+            <p className={styles.resultCount}>Results: {results.length}</p>
 
-            {filteredResults.length === 0 ? (
+            {results.length === 0 ? (
               <p className={styles.searchHint}>No books found.</p>
             ) : (
-              filteredResults.map((book) => (
+              results.map((book) => (
                 <div key={book.book_id} className={styles.bookCard}>
                   <div className={styles.bookDetails}>
                     <p className={styles.bookType}>Book</p>
@@ -185,36 +167,11 @@ export default function OPAC() {
                       <br />
                       Genre: {book.genre || 'N/A'}
                     </p>
-                    <p
-                      className={
-                        book.available && book.available > 0
-                          ? styles.available
-                          : styles.notAvailable
-                      }
-                    >
-                      {book.available && book.available > 0 ? (
-                        <>
-                          ✅ <strong>Available:</strong> {book.available} of{' '}
-                          {book.total ?? '?'} copies remaining
-                        </>
-                      ) : (
-                        <>
-                          ❌ <strong>Not Available:</strong>{' '}
-                          {book.available ?? 0} of {book.total ?? '?'} copies
-                          remaining
-                        </>
-                      )}
-                    </p>
                   </div>
 
                   <div className={styles.bookAction}>
                     <button
-                      className={`${styles.requestBtn} ${
-                        !book.available || book.available === 0
-                          ? styles.disabledBtn
-                          : ''
-                      }`}
-                      disabled={!book.available || book.available === 0}
+                      className={styles.requestBtn}
                     >
                       Request Item
                     </button>

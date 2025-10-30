@@ -23,15 +23,11 @@ router.get("/search", async (req, res) => {
     // STEP 1: Find matching book IDs (without joins to avoid duplicates)
     if (type === "keyword") {
       // Search title
-      const { data: titleResults } = await supabase
-        .from("books")
-        .select("book_id");
-        // .ilike("title", `%${query}%`);
-
-      // Using rpc or manual filtering since ilike might not work as expected
-      const { data: allBooks } = await supabase
+      const titleResult = await supabase
         .from("books")
         .select("book_id, title");
+
+      const allBooks = titleResult.data || [];
 
       if (allBooks) {
         allBooks.forEach(book => {
@@ -42,35 +38,41 @@ router.get("/search", async (req, res) => {
       }
 
       // Search category
-      const { data: allBooksWithCategory } = await supabase
+      const categoryResult = await supabase
         .from("books")
         .select("book_id, categories(category_name)");
 
+      const allBooksWithCategory = categoryResult.data || [];
+
       if (allBooksWithCategory) {
         allBooksWithCategory.forEach(book => {
-          if (book.categories?.category_name?.toLowerCase().includes(query.toLowerCase())) {
+          if (book.categories && book.categories.category_name && book.categories.category_name.toLowerCase().includes(query.toLowerCase())) {
             bookIds.add(book.book_id);
           }
         });
       }
 
       // Search authors
-      const { data: allAuthors } = await supabase
+      const authorResult = await supabase
         .from("book_authors")
         .select("book_id, authors(name)");
 
+      const allAuthors = authorResult.data || [];
+
       if (allAuthors) {
         allAuthors.forEach(item => {
-          if (item.authors?.name?.toLowerCase().includes(query.toLowerCase())) {
+          if (item.authors && item.authors.name && item.authors.name.toLowerCase().includes(query.toLowerCase())) {
             bookIds.add(item.book_id);
           }
         });
       }
 
     } else if (type === "title") {
-      const { data: allBooks } = await supabase
+      const titleResult = await supabase
         .from("books")
         .select("book_id, title");
+
+      const allBooks = titleResult.data || [];
 
       if (allBooks) {
         allBooks.forEach(book => {
@@ -81,26 +83,30 @@ router.get("/search", async (req, res) => {
       }
 
     } else if (type === "author") {
-      const { data: allAuthors } = await supabase
+      const authorResult = await supabase
         .from("book_authors")
         .select("book_id, authors(name)");
 
+      const allAuthors = authorResult.data || [];
+
       if (allAuthors) {
         allAuthors.forEach(item => {
-          if (item.authors?.name?.toLowerCase().includes(query.toLowerCase())) {
+          if (item.authors && item.authors.name && item.authors.name.toLowerCase().includes(query.toLowerCase())) {
             bookIds.add(item.book_id);
           }
         });
       }
 
     } else if (type === "subject") {
-      const { data: allBooksWithCategory } = await supabase
+      const categoryResult = await supabase
         .from("books")
         .select("book_id, categories(category_name)");
 
+      const allBooksWithCategory = categoryResult.data || [];
+
       if (allBooksWithCategory) {
         allBooksWithCategory.forEach(book => {
-          if (book.categories?.category_name?.toLowerCase().includes(query.toLowerCase())) {
+          if (book.categories && book.categories.category_name && book.categories.category_name.toLowerCase().includes(query.toLowerCase())) {
             bookIds.add(book.book_id);
           }
         });
@@ -113,7 +119,7 @@ router.get("/search", async (req, res) => {
     }
 
     // STEP 2: Fetch full book data with authors for matched books
-    const { data: booksData } = await supabase
+    const booksResult = await supabase
       .from("books")
       .select(`
         book_id,
@@ -126,6 +132,8 @@ router.get("/search", async (req, res) => {
         edition,
         language,
         date_added,
+        available_copies,
+        total_copies,
         categories:category_id(category_name),
         book_authors(
           authors(name)
@@ -133,12 +141,16 @@ router.get("/search", async (req, res) => {
       `)
       .in("book_id", Array.from(bookIds));
 
+    const booksData = booksResult.data || [];
+
     // STEP 3: Format and return data
-    const formattedData = (booksData || []).map(book => {
+    const formattedData = booksData.map(book => {
       const authorNames = book.book_authors
-        ?.map(ba => ba.authors?.name)
-        .filter(Boolean)
-        .join(", ") || "N/A";
+        ? book.book_authors
+          .map(ba => ba.authors ? ba.authors.name : null)
+          .filter(Boolean)
+          .join(", ")
+        : "N/A";
 
       return {
         book_id: book.book_id,
@@ -149,12 +161,12 @@ router.get("/search", async (req, res) => {
         publisher: book.publisher || "N/A",
         publication_year: book.publication_year || "N/A",
         edition: book.edition || "N/A",
-        author: authorNames,
-        genre: book.categories?.category_name || "N/A",
+        author: authorNames || "N/A",
+        genre: book.categories ? book.categories.category_name : "N/A",
         language: book.language || "English",
         date_added: book.date_added,
-        available: 0, // Placeholder - add actual column if available
-        total: 0 // Placeholder - add actual column if available
+        available: book.available_copies || 0,
+        total: book.total_copies || 0
       };
     });
 
