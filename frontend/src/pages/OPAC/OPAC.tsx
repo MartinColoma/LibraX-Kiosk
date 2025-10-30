@@ -45,16 +45,23 @@ export default function OPAC() {
   const [searched, setSearched] = useState(false);
   const [debounceTimer, setDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
 
-  // NFC Scan states
+  // NFC / Manual Input states
   const [showScanModal, setShowScanModal] = useState(false);
+  const [manualStudentId, setManualStudentId] = useState('');
+  const [manualUser, setManualUser] = useState<UserData | null>(null);
+  const [isManualInputMode, setIsManualInputMode] = useState(false);
+
   const [selectedBook, setSelectedBook] = useState<Book | null>(null);
   const [scanRequestId, setScanRequestId] = useState<string | null>(null);
   const [scanMessage, setScanMessage] = useState('');
   const [scannedUser, setScannedUser] = useState<UserData | null>(null);
   const [requestSuccess, setRequestSuccess] = useState(false);
+
+  // Password modal states
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSearchType(e.target.value);
@@ -113,13 +120,16 @@ export default function OPAC() {
     setDebounceTimer(timer);
   };
 
-  // ===== NFC Scan Functions =====
+  // NFC Scan flow
   const startNFCScan = async (book: Book) => {
     setSelectedBook(book);
     setShowScanModal(true);
     setScanMessage('Initiating scan request...');
     setScannedUser(null);
+    setManualUser(null);
     setRequestSuccess(false);
+    setIsManualInputMode(false);
+    setManualStudentId('');
 
     try {
       const sessionId = 'opac_' + Date.now();
@@ -143,7 +153,7 @@ export default function OPAC() {
 
   const pollForScanCompletion = (requestId: string) => {
     let pollCount = 0;
-    const maxPolls = 30; // 60 seconds with 2s interval
+    const maxPolls = 30; // 60 seconds
 
     const interval = setInterval(async () => {
       pollCount++;
@@ -174,22 +184,42 @@ export default function OPAC() {
     }, 2000);
   };
 
+  // When manual submit student ID for lookup
+  const handleManualSubmit = async () => {
+    if (!manualStudentId.trim()) return;
+
+    try {
+      const resp = await axios.post(`${API_BASE_URL}/attendance/manual`, { student_id: manualStudentId.trim() });
+      if (resp.data.success && resp.data.user) {
+        setManualUser(resp.data.user);
+        setScannedUser(resp.data.user); // for consistency later
+        setScanMessage('Manual input accepted.');
+      } else {
+        setScanMessage('Student/Faculty ID not found.');
+        setManualUser(null);
+      }
+    } catch {
+      setScanMessage('Error during manual input lookup.');
+      setManualUser(null);
+    }
+  };
+
+  // Confirm book request (after password verification)
   const confirmBookRequest = async () => {
-    if (!selectedBook || !scannedUser) return;
+    const userToUse = scannedUser || manualUser;
+    if (!selectedBook || !userToUse) return;
 
     try {
       const response = await axios.post(`${API_BASE_URL}/books/request`, {
-        nfc_uid: scannedUser.nfc_uid,
+        nfc_uid: userToUse.nfc_uid,
         book_id: selectedBook.book_id
       });
 
       if (response.data.success) {
         setRequestSuccess(true);
         setScanMessage('✅ Request approved successfully!');
-        
         setTimeout(() => {
           closeScanModal();
-          // Refresh results
           if (query) performSearch(query);
         }, 2000);
       } else {
@@ -203,11 +233,12 @@ export default function OPAC() {
 
   // Password verification function
   const requestWithPassword = async () => {
-    if (!passwordInput || !scannedUser || !selectedBook) return;
+    const userToCheck = scannedUser || manualUser;
+    if (!passwordInput || !userToCheck || !selectedBook) return;
 
     try {
       const verifyResp = await axios.post(`${API_BASE_URL}/auth/verify-password`, {
-        user_id: scannedUser.user_id,
+        user_id: userToCheck.user_id,
         password: passwordInput,
       });
 
@@ -240,10 +271,13 @@ export default function OPAC() {
     setScanRequestId(null);
     setScanMessage('');
     setScannedUser(null);
+    setManualUser(null);
+    setManualStudentId('');
     setRequestSuccess(false);
     setShowPasswordModal(false);
     setPasswordInput('');
     setPasswordError('');
+    setIsManualInputMode(false);
   };
 
   return (
@@ -368,46 +402,56 @@ export default function OPAC() {
         )}
       </main>
 
-      {/* NFC Scan Modal */}
+      {/* NFC/Manual Input Modal */}
       {showScanModal && selectedBook && !showPasswordModal && (
         <div className={styles.modalOverlay} onClick={closeScanModal}>
           <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
             <h3 className={styles.modalTitle}>Request Details</h3>
 
-            {!scannedUser ? (
-              <div className={styles.scanPhase}>
-                <div className={styles.nfcIcon}>📱)))</div>
-                <p className={styles.scanStatus}>{scanMessage || 'Waiting for NFC scan...'}</p>
-                <p className={styles.scanHint}>
-                  Please scan your NFC card at the ESP32 kiosk
-                </p>
-              </div>
+            <div style={{ marginBottom: '15px' }}>
+              <button
+                className={styles.requestBtn}
+                onClick={() => setIsManualInputMode(!isManualInputMode)}
+                type="button"
+              >
+                {isManualInputMode ? 'Use NFC Scan' : 'Use Student/Faculty ID'}
+              </button>
+            </div>
+
+            {!isManualInputMode ? (
+              !scannedUser ? (
+                <div className={styles.scanPhase}>
+                  <div className={styles.nfcIcon}>📱)))</div>
+                  <p className={styles.scanStatus}>{scanMessage || 'Waiting for NFC scan...'}</p>
+                  <p className={styles.scanHint}>
+                    Please scan your NFC card at the ESP32 kiosk
+                  </p>
+                </div>
+              ) : (
+                <RenderUserDetails user={scannedUser} />
+              )
             ) : (
-              <div className={styles.modalContent}>
-                <div className={styles.section}>
-                  <h4 className={styles.sectionTitle}>Book Information</h4>
-                  <p><strong>Title:</strong> {selectedBook.title}</p>
-                  <p><strong>Author:</strong> {selectedBook.author || 'N/A'}</p>
-                  <p><strong>Genre:</strong> {selectedBook.genre || 'N/A'}</p>
-                  <p><strong>Publisher:</strong> {selectedBook.publisher || 'N/A'}</p>
-                  <p><strong>Language:</strong> English</p>
-                  <p><strong>ISBN:</strong> {selectedBook.isbn || 'N/A'}</p>
-                  <p><strong>Due Date:</strong> {new Date(new Date().setDate(new Date().getDate() + 30)).toISOString().split('T')[0]} (30days)</p>
-                </div>
-
-                <div className={styles.section}>
-                  <h4 className={styles.sectionTitle}>Borrower Detail</h4>
-                  <p><strong>Full Name:</strong> {scannedUser.first_name} {scannedUser.last_name}</p>
-                  <p><strong>Student/Faculty ID No.:</strong> {scannedUser.student_faculty_id}</p>
-                  <p><strong>Email Address:</strong> {scannedUser.email}</p>
-                  <p><strong>Phone Number:</strong> {scannedUser.phone_number}</p>
-                  <p><strong>Address:</strong> {scannedUser.address}</p>
-                  <p><strong>Member Since:</strong> {scannedUser.date_registered}</p>
-                </div>
-
-                {requestSuccess && (
-                  <p className={styles.successMessage}>✅ {scanMessage}</p>
-                )}
+              <div>
+                <input
+                  type="text"
+                  className={styles.searchInput}
+                  placeholder="Enter Student/Faculty ID"
+                  value={manualStudentId}
+                  onChange={(e) => setManualStudentId(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleManualSubmit();
+                    }
+                  }}
+                  autoFocus
+                  style={{ marginBottom: '10px' }}
+                />
+                <button className={styles.requestBtn} onClick={handleManualSubmit}>
+                  Submit ID
+                </button>
+                <p className={styles.scanStatus}>{scanMessage}</p>
+                {manualUser && <RenderUserDetails user={manualUser} />}
               </div>
             )}
 
@@ -419,7 +463,8 @@ export default function OPAC() {
               >
                 Cancel
               </button>
-              {scannedUser && !requestSuccess && (
+
+              {(scannedUser || manualUser) && !requestSuccess && (
                 <button
                   className={styles.requestBtn}
                   onClick={() => setShowPasswordModal(true)}
@@ -437,13 +482,29 @@ export default function OPAC() {
         <div className={styles.modalOverlay} onClick={() => setShowPasswordModal(false)}>
           <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
             <h3 className={styles.modalTitle}>Enter Password</h3>
-            <input
-              type="password"
-              value={passwordInput}
-              className={styles.searchInput}
-              placeholder="Enter your password"
-              onChange={(e) => setPasswordInput(e.target.value)}
-            />
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={passwordInput}
+                className={styles.searchInput}
+                placeholder="Enter your password"
+                onChange={(e) => setPasswordInput(e.target.value)}
+                style={{ flex: 1 }}
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  marginLeft: '8px',
+                  padding: '4px 8px',
+                  fontSize: '14px',
+                  cursor: 'pointer'
+                }}
+              >
+                {showPassword ? 'Hide' : 'View'}
+              </button>
+            </div>
             {passwordError && <p className={styles.notAvailable}>{passwordError}</p>}
             <div className={styles.modalActions}>
               <button className={styles.cancelBtn} onClick={() => setShowPasswordModal(false)}>
@@ -458,6 +519,22 @@ export default function OPAC() {
       )}
 
       <Chatbot />
+    </div>
+  );
+}
+
+function RenderUserDetails({ user }: { user: UserData }) {
+  return (
+    <div className={styles.modalContent}>
+      <div className={styles.section}>
+        <h4 className={styles.sectionTitle}>User Details</h4>
+        <p><strong>Full Name:</strong> {user.first_name} {user.last_name}</p>
+        <p><strong>Student/Faculty ID No.:</strong> {user.student_faculty_id}</p>
+        <p><strong>Email Address:</strong> {user.email}</p>
+        <p><strong>Phone Number:</strong> {user.phone_number}</p>
+        <p><strong>Address:</strong> {user.address}</p>
+        <p><strong>Member Since:</strong> {user.date_registered}</p>
+      </div>
     </div>
   );
 }
