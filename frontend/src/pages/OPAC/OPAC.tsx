@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Search } from 'lucide-react';
 import styles from './OPAC.module.css';
 import Chatbot from './modals/Chatbot/Chatbot';
 import axios from 'axios';
 
 interface Book {
-  book_id: string; // Changed from number to string to match your DB schema
+  book_id: string;
   title: string;
   author?: string;
   publisher?: string;
@@ -22,7 +22,6 @@ const searchTypes = [
   { value: 'subject', label: 'Subject' },
 ];
 
-// ✅ Set your backend URL
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 export default function OPAC() {
@@ -31,6 +30,7 @@ export default function OPAC() {
   const [results, setResults] = useState<Book[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSearchType(e.target.value);
@@ -39,11 +39,8 @@ export default function OPAC() {
     setSearched(false);
   };
 
-  const handleSearch = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setQuery(value);
-
-    if (value.trim() === '') {
+  const fetchResults = async (searchQuery: string) => {
+    if (!searchQuery.trim()) {
       setResults([]);
       setSearched(false);
       return;
@@ -52,17 +49,13 @@ export default function OPAC() {
     setLoading(true);
     try {
       const { data } = await axios.get(
-        `${API_BASE_URL}/opac/search?type=${searchType}&query=${encodeURIComponent(value)}`
+        `${API_BASE_URL}/opac/search?type=${searchType}&query=${encodeURIComponent(searchQuery)}`
       );
 
       console.log('API Response:', data);
 
       if (Array.isArray(data)) {
         setResults(data);
-      } else if (data?.results && Array.isArray(data.results)) {
-        setResults(data.results);
-      } else if (data?.data && Array.isArray(data.data)) {
-        setResults(data.data);
       } else {
         setResults([]);
       }
@@ -77,6 +70,16 @@ export default function OPAC() {
     }
   };
 
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setQuery(value);
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      fetchResults(value);
+    }, 300);
+  };
+
   return (
     <div className={styles.opacContainer}>
       <header className={styles.opacHeader}>
@@ -84,7 +87,6 @@ export default function OPAC() {
           <h1 className={styles.logo}>LibraX</h1>
           <p className={styles.subtitle}>AIoT Library Kiosk</p>
         </div>
-
         <nav className={styles.navLinks}>
           <a href="/">HOME</a>
           <a href="/patron-attendance">ATTENDANCE</a>
@@ -130,9 +132,7 @@ export default function OPAC() {
         {loading ? (
           <p className={styles.searchHint}>Loading...</p>
         ) : !searched && query === '' ? (
-          <p className={styles.searchHint}>
-            Enter a search query to show results
-          </p>
+          <p className={styles.searchHint}>Enter a search query to show results</p>
         ) : (
           <div className={styles.resultsContainer}>
             <p className={styles.resultCount}>Results: {results.length}</p>
@@ -148,8 +148,7 @@ export default function OPAC() {
                     <p className={styles.bookMeta}>
                       Author: {book.author || 'N/A'}
                       <br />
-                      Publisher: {book.publisher || 'N/A'} •{' '}
-                      {book.publication_year || 'N/A'}
+                      Publisher: {book.publisher || 'N/A'} • {book.publication_year || 'N/A'}
                       <br />
                       Genre: {book.genre || 'N/A'}
                     </p>
@@ -162,14 +161,11 @@ export default function OPAC() {
                     >
                       {book.available && book.available > 0 ? (
                         <>
-                          ✅ <strong>Available:</strong> {book.available} of{' '}
-                          {book.total ?? '?'} copies remaining
+                          ✅ <strong>Available:</strong> {book.available} of {book.total ?? '?'} copies remaining
                         </>
                       ) : (
                         <>
-                          ❌ <strong>Not Available:</strong>{' '}
-                          {book.available ?? 0} of {book.total ?? '?'} copies
-                          remaining
+                          ❌ <strong>Not Available:</strong> {book.available ?? 0} of {book.total ?? '?'} copies remaining
                         </>
                       )}
                     </p>
@@ -178,9 +174,7 @@ export default function OPAC() {
                   <div className={styles.bookAction}>
                     <button
                       className={`${styles.requestBtn} ${
-                        !book.available || book.available === 0
-                          ? styles.disabledBtn
-                          : ''
+                        !book.available || book.available === 0 ? styles.disabledBtn : ''
                       }`}
                       disabled={!book.available || book.available === 0}
                     >
