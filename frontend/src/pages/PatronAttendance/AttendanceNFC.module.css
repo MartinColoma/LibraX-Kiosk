@@ -249,3 +249,72 @@
   color: var(--muji-brown);
   margin-bottom: 1.75rem;
 }
+/* Add these to your AttendanceNFC.module.css file */
+
+.manualInputLink {
+  margin-top: 1rem;
+  font-size: 0.95rem;
+  color: #6b4423;
+}
+
+.linkText {
+  color: #7d3c3c;
+  text-decoration: underline;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.linkText:hover {
+  color: #5a2a2a;
+}
+
+.manualInputCard {
+  background: #f5ebe0;
+  border-radius: 20px;
+  padding: 2rem;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.manualTitle {
+  color: #7d3c3c;
+  font-size: 1.8rem;
+  font-weight: 700;
+  font-style: italic;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.inputGroup {
+  margin-bottom: 1.5rem;
+}
+
+.inputLabel {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #3d2817;
+  margin-bottom: 0.5rem;
+}
+
+.manualInput {
+  width: 100%;
+  padding: 1rem;
+  font-size: 1rem;
+  border: 2px solid #d4a574;
+  border-radius: 10px;
+  background: white;
+  color: #3d2817;
+  box-sizing: border-box;
+}
+
+.manualInput:focus {
+  outline: none;
+  border-color: #7d3c3c;
+}
+
+.manualInput::placeholder {
+  color: #a88d6d;
+  font-style: italic;
+}

@@ -60,7 +60,7 @@ const AppRoutes: React.FC = () => {
                     onClose={() => window.history.back()}
                     onSuccess={(userName, readerNumber) => {
                         console.log("✅ Attendance recorded for:", userName, "Reader #", readerNumber);
-                        window.history.back();
+                        
                     }}
                     />,
                     document.body

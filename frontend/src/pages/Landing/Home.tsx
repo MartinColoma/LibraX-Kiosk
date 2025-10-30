@@ -1,7 +1,7 @@
 import styles from './Home.module.css';
 import libraryCover from '../../assets/images/library_cover1.jpg';
 import usePageMeta from '../../hooks/usePageMeta';
-import AttendanceNFC from '../PatronAttendance/AttendanceSuccess';
+import AttendanceNFC from '../PatronAttendance/AttendanceNFC';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 export default function LibraXKiosk() {
