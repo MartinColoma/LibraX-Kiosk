@@ -10,6 +10,56 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+// ===== Helper: Check if scan is for book request =====
+async function handleBookRequestScan(nfc_uid, requestId, supabase) {
+  try {
+    // Get the pending scan request
+    const scanResult = await supabase
+      .from("scan_requests")
+      .select("*")
+      .eq("id", requestId)
+      .single();
+
+    if (!scanResult.data) return null;
+
+    const responseData = JSON.parse(scanResult.data.response || '{}');
+    
+    // Check if this scan has a book_id (meaning it's for book request, not attendance)
+    if (!responseData.book_id) return null;
+
+    // Get user data
+    const userResult = await supabase
+      .from("users")
+      .select("user_id, first_name, last_name, email, phone_number, student_faculty_id, address, date_registered, nfc_uid")
+      .eq("nfc_uid", nfc_uid)
+      .single();
+
+    if (!userResult.data) return null;
+
+    // Prepare book request response
+    const fullResponse = {
+      user: userResult.data,
+      book_id: responseData.book_id,
+      scannedUid: nfc_uid
+    };
+
+    // Update scan request to completed
+    await supabase
+      .from("scan_requests")
+      .update({
+        status: "completed",
+        nfc_uid,
+        response: JSON.stringify(fullResponse)
+      })
+      .eq("id", requestId);
+
+    return fullResponse;
+  } catch (error) {
+    console.error("Book request scan error:", error);
+    return null;
+  }
+}
+
 // -------------------------------
 // POST /attendance/record - NFC scan
 // -------------------------------
@@ -128,7 +178,7 @@ router.post("/manual", async (req, res) => {
 // -------------------------------
 router.post("/request-scan", async (req, res) => {
   try {
-    const { sessionId } = req.body;
+    const { sessionId, book_id } = req.body;
     if (!sessionId)
       return res.status(400).json({ success: false, message: "Missing sessionId" });
 
@@ -150,10 +200,16 @@ router.post("/request-scan", async (req, res) => {
       });
     }
 
-    // Otherwise, create new one
+    // Otherwise, create new one with optional book_id in response
+    const responseData = book_id ? JSON.stringify({ book_id }) : null;
+    
     const { data, error } = await supabase
       .from("scan_requests")
-      .insert([{ session_id: sessionId, status: "pending" }])
+      .insert([{ 
+        session_id: sessionId, 
+        status: "pending",
+        response: responseData
+      }])
       .select();
 
     if (error) return res.status(500).json({ success: false, error });
@@ -191,6 +247,19 @@ router.post("/scan-result", async (req, res) => {
     if (!requestId || !nfc_uid)
       return res.status(400).json({ success: false, message: "Missing requestId or nfc_uid" });
 
+    // Check if this is a book request scan FIRST
+    const bookRequestResult = await handleBookRequestScan(nfc_uid, requestId, supabase);
+    if (bookRequestResult) {
+      console.log("[Book Request Scan] Processing book request for:", bookRequestResult.user.first_name);
+      return res.json({ 
+        success: true, 
+        type: "book_request",
+        scan_request: bookRequestResult,
+        message: "Book request scan completed"
+      });
+    }
+
+    // If not book request, continue with normal attendance flow
     const { data: user, error: userError } = await supabase
       .from("users")
       .select("user_id, first_name, last_name, nfc_uid, role, student_faculty_id")
@@ -300,7 +369,6 @@ router.post("/cancel-request", async (req, res) => {
 });
 
 // Clears old attendance scan requests with status "pending" or "completed"
-
 router.post("/clear-old-requests", async (req, res) => {
   try {
     const { sessionId } = req.body;
@@ -329,78 +397,5 @@ router.post("/clear-old-requests", async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to clear old requests" });
   }
 });
-
-// ADD THIS FUNCTION TO attendance.js
-// This handles book request scans without affecting attendance functionality
-
-// ===== Helper: Check if scan is for book request =====
-async function handleBookRequestScan(nfc_uid, requestId, supabase) {
-  try {
-    // Get the pending scan request
-    const scanResult = await supabase
-      .from("scan_requests")
-      .select("*")
-      .eq("id", requestId)
-      .single();
-
-    if (!scanResult.data) return null;
-
-    const responseData = JSON.parse(scanResult.data.response || '{}');
-    
-    // Check if this scan has a book_id (meaning it's for book request, not attendance)
-    if (!responseData.book_id) return null;
-
-    // Get user data
-    const userResult = await supabase
-      .from("users")
-      .select("user_id, first_name, last_name, email, phone_number, student_faculty_id, address, date_registered, nfc_uid")
-      .eq("nfc_uid", nfc_uid)
-      .single();
-
-    if (!userResult.data) return null;
-
-    // Prepare book request response
-    const fullResponse = {
-      user: userResult.data,
-      book_id: responseData.book_id,
-      scannedUid: nfc_uid
-    };
-
-    // Update scan request to completed
-    await supabase
-      .from("scan_requests")
-      .update({
-        status: "completed",
-        nfc_uid,
-        response: JSON.stringify(fullResponse)
-      })
-      .eq("id", requestId);
-
-    return fullResponse;
-  } catch (error) {
-    console.error("Book request scan error:", error);
-    return null;
-  }
-}
-
-// ===== IN YOUR SCAN-RESULT ROUTE, ADD THIS AT THE TOP =====
-// Place this BEFORE the attendance insert logic
-
-// Check if this is a book request scan
-const bookRequestResult = await handleBookRequestScan(nfc_uid, requestId, supabase);
-if (bookRequestResult) {
-  console.log("[Book Request Scan] Processing book request for:", bookRequestResult.user.first_name);
-  return res.json({ 
-    success: true, 
-    type: "book_request",
-    scan_request: bookRequestResult,
-    message: "Book request scan completed"
-  });
-}
-
-// If not book request, continue with normal attendance flow...
-// (rest of your attendance code stays the same)
-
-
 
 module.exports = router;
