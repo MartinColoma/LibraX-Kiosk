@@ -30,18 +30,41 @@ router.get("/search", async (req, res) => {
     `;
 
     if (type === "keyword") {
-      // Search across title, category, or author
-      const { data: results, error } = await supabase
+      // Search across title - first query
+      const { data: titleResults, error: titleError } = await supabase
         .from("books")
         .select(baseSelect)
-        .or(`title.ilike.%${query}%,categories.category_name.ilike.%${query}%,book_authors.authors.name.ilike.%${query}%`);
+        .ilike("title", `%${query}%`);
 
-      if (error) {
-        console.error("Keyword search error:", error.message);
-        return res.status(200).json([]);
+      if (titleError) {
+        console.error("Title search error:", titleError.message);
+      } else {
+        data = data.concat(titleResults || []);
       }
 
-      data = results || [];
+      // Search across category - second query
+      const { data: categoryResults, error: categoryError } = await supabase
+        .from("books")
+        .select(baseSelect)
+        .ilike("categories.category_name", `%${query}%`);
+
+      if (categoryError) {
+        console.error("Category search error:", categoryError.message);
+      } else {
+        data = data.concat(categoryResults || []);
+      }
+
+      // Search across author - third query
+      const { data: authorResults, error: authorError } = await supabase
+        .from("books")
+        .select(baseSelect)
+        .ilike("book_authors.authors.name", `%${query}%`);
+
+      if (authorError) {
+        console.error("Author search error:", authorError.message);
+      } else {
+        data = data.concat(authorResults || []);
+      }
 
     } else if (type === "title") {
       const { data: results, error } = await supabase
@@ -83,7 +106,7 @@ router.get("/search", async (req, res) => {
       data = results || [];
     }
 
-    // Deduplicate books by book_id (fixes duplicate rows from joins)
+    // Deduplicate books by book_id using a Map
     const uniqueBooks = new Map();
     
     data.forEach(book => {
