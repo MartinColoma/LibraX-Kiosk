@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import styles from './Chatbot.module.css'; // your CSS file
+import React, { useState, useRef, useEffect } from 'react';
+import styles from './Chatbot.module.css';
 
 const initialMessages = [
   { id: 1, text: 'Welcome to LibraX!', sender: 'bot' },
@@ -9,23 +9,45 @@ const initialMessages = [
 const Chatbot: React.FC = () => {
   const [messages, setMessages] = useState(initialMessages);
   const [input, setInput] = useState('');
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const handleSend = () => {
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const handleSend = async () => {
     if (input.trim() === '') return;
+    const userInput = input;
     setMessages(prev => [
       ...prev,
-      { id: prev.length + 1, text: input, sender: 'user' },
+      { id: prev.length + 1, text: userInput, sender: 'user' }
     ]);
     setInput('');
-    // You can simulate bot response here if needed
+    try {
+      const res = await fetch('/ai-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: userInput }),
+      });
+      const data = await res.json();
+      const botResponse = data.response || 'Sorry, no response.';
+      setMessages(prev => [
+        ...prev,
+        { id: prev.length + 1, text: botResponse, sender: 'bot' }
+      ]);
+    } catch (error) {
+      setMessages(prev => [
+        ...prev,
+        { id: prev.length + 1, text: 'Error contacting server.', sender: 'bot' }
+      ]);
+    }
   };
 
   return (
     <div className={styles.chatbotContainer}>
-      {/* Header with collapse toggle */}
       <div className={styles.header} onClick={() => setOpen(o => !o)}>
-        <span>LibraX <b>ChatBot</b></span>
+        <span>LibraX ChatBot</span>
         <span className={styles.arrow}>{open ? '▼' : '▲'}</span>
       </div>
       {open && (
@@ -34,27 +56,29 @@ const Chatbot: React.FC = () => {
             {messages.map(msg => (
               <div
                 key={msg.id}
-                className={msg.sender === 'user'
-                  ? styles.userBubble
+                className={msg.sender === 'user' 
+                  ? styles.userBubble 
                   : styles.botBubble}
               >
                 {msg.text}
               </div>
             ))}
+            <div ref={messagesEndRef} />
           </div>
           <div className={styles.inputArea}>
             <input
               type="text"
               value={input}
               onChange={e => setInput(e.target.value)}
-              placeholder="Ask about books"
+              placeholder="Ask about books..."
               className={styles.inputBox}
+              onKeyDown={e => e.key === 'Enter' && handleSend()}
             />
             <button
               className={styles.sendBtn}
               onClick={handleSend}
             >
-              Ask about books
+              Send
             </button>
           </div>
         </div>
@@ -64,4 +88,3 @@ const Chatbot: React.FC = () => {
 };
 
 export default Chatbot;
-

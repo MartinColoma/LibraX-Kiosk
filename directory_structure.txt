@@ -1,0 +1,79 @@
+LibraX-Kiosk
+├── .env
+├── api
+│   ├── attendance
+│   │   ├── log.ts
+│   │   ├── record.ts
+│   │   └── scan.ts
+│   ├── package-lock.json
+│   ├── package.json
+│   └── utils
+│       └── cors.ts
+├── backend
+│   ├── LibraX_ChatBot
+│   │   └── ai
+│   │       ├── .env
+│   │       ├── Modelfile
+│   │       └── libraX_Bot.py
+│   ├── directory_structure.py
+│   └── postgre
+│       ├── librax_attendance.sql
+│       ├── librax_users.sql
+│       ├── users_and_attendance.sql
+│       └── users_rows.sql
+├── directory_structure.txt
+├── frontend
+│   ├── .gitignore
+│   ├── README.md
+│   ├── eslint.config.js
+│   ├── index.html
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── public
+│   │   ├── LibraX Rectangle Logo 1.png
+│   │   ├── LibraX Rectangle Logo 2.png
+│   │   ├── LibraX Square Logo 1.png
+│   │   ├── LibraX Square Logo 2.png
+│   │   └── vite.svg
+│   ├── src
+│   │   ├── App.css
+│   │   ├── App.tsx
+│   │   ├── AppRoutes.tsx
+│   │   ├── assets
+│   │   │   ├── images
+│   │   │   │   ├── library_cover1.jpg
+│   │   │   │   └── library_cover2.jpg
+│   │   │   └── react.svg
+│   │   ├── components
+│   │   ├── hooks
+│   │   │   └── usePageMeta.ts
+│   │   ├── index.css
+│   │   ├── main.tsx
+│   │   └── pages
+│   │       ├── Landing
+│   │       │   ├── Home.module.css
+│   │       │   ├── Home.tsx
+│   │       │   └── NotFound
+│   │       │       ├── PageNotFound.css
+│   │       │       └── PageNotFound.tsx
+│   │       ├── OPAC
+│   │       │   ├── OPAC.module.css
+│   │       │   ├── OPAC.tsx
+│   │       │   └── modals
+│   │       │       └── Chatbot
+│   │       │           ├── Chatbot.module.css
+│   │       │           └── Chatbot.tsx
+│   │       ├── PatronAttendance
+│   │       │   ├── AttendanceNFC.module.css
+│   │       │   ├── AttendanceNFC.tsx
+│   │       │   ├── AttendanceSuccess.module.css
+│   │       │   └── AttendanceSuccess.tsx
+│   │       └── ReturnBooks
+│   │           ├── ReturnBooks.css
+│   │           └── ReturnBooks.tsx
+│   ├── tsconfig.app.json
+│   ├── tsconfig.json
+│   ├── tsconfig.node.json
+│   └── vite.config.ts
+├── package-lock.json
+└── package.json

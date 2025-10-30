@@ -1,6 +1,6 @@
 import os
 
-EXCLUDED_DIRS = {"node_modules", ".git", ".vscode", ".venv", "backend"}
+EXCLUDED_DIRS = {"node_modules", ".git", ".vscode", ".venv"}
 
 def list_dir_tree(root_dir, file_object, prefix=""):
     """Recursively writes the directory tree into a file."""
@@ -31,5 +31,5 @@ def save_directory_structure(root_dir, output_file="directory_structure.txt"):
     print(f"✅ Directory structure saved to: {os.path.abspath(output_file)}")
 
 # === Usage ===
-root_directory = r"C:\Users\Pepper\LibraX-Kiosk"
+root_directory = r"C:\Users\cdebe\Desktop\LibraX-Kiosk"
 save_directory_structure(root_directory)
