@@ -39,7 +39,7 @@ router.post("/request", async (req, res) => {
     return res.status(400).json({ success: false, message: "No available copies" });
   }
 
-  // Create book request with status 'Pending Approval' (no copies deducted yet)
+  // Create request with status 'Pending Approval' and deduct available copies
   const dueDate = new Date();
   dueDate.setDate(dueDate.getDate() + 30);
 
@@ -51,14 +51,22 @@ router.post("/request", async (req, res) => {
       book_id: book_id,
       request_date: new Date().toISOString(),
       due_date: dueDate.toISOString().slice(0,10),
-      status: "Pending Approval"  // status set here
+      status: "Pending Approval"
     }]);
 
   if (insertError) {
     return res.status(500).json({ success: false, message: "Failed to create request" });
   }
 
-  // Do NOT deduct available_copies here
+  // Deduct available copies
+  const { error: updateError } = await supabase
+    .from("books")
+    .update({ available_copies: book.available_copies - 1 })
+    .eq("book_id", book_id);
+
+  if (updateError) {
+    return res.status(500).json({ success: false, message: "Failed to update book copies" });
+  }
 
   return res.status(201).json({ success: true, message: "Book request created and pending approval" });
 });
