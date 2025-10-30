@@ -18,60 +18,56 @@ router.get("/search", async (req, res) => {
       return res.status(200).json([]);
     }
 
-    let bookIds = new Set();
+    let data = [];
 
-    // Search for matching books - WITHOUT joining book_authors
+    // Build base select WITH authors
     const baseSelect = `
-      book_id,
-      isbn,
-      title,
-      subtitle,
-      description,
-      publisher,
-      publication_year,
-      edition,
-      language,
-      date_added,
-      available_copies,
-      total_copies,
-      categories:category_id(category_name)
+      *,
+      categories:category_id(category_name),
+      book_authors(
+        authors(name)
+      )
     `;
 
     if (type === "keyword") {
-      // Search across title - first query
+      // Search across title
       const { data: titleResults, error: titleError } = await supabase
         .from("books")
         .select(baseSelect)
         .ilike("title", `%${query}%`);
 
       if (!titleError && titleResults) {
-        titleResults.forEach(book => bookIds.add(book.book_id));
-      } else if (titleError) {
-        console.error("Title search error:", titleError.message);
+        data = data.concat(titleResults);
       }
 
-      // Search across category - second query
+      // Search across category
       const { data: categoryResults, error: categoryError } = await supabase
         .from("books")
         .select(baseSelect)
         .ilike("categories.category_name", `%${query}%`);
 
       if (!categoryError && categoryResults) {
-        categoryResults.forEach(book => bookIds.add(book.book_id));
-      } else if (categoryError) {
-        console.error("Category search error:", categoryError.message);
+        data = data.concat(categoryResults);
       }
 
-      // Search across author - third query
-      const { data: authorIds, error: authorError } = await supabase
+      // Search across authors - get matching book_ids first
+      const { data: authorMatches, error: authorError } = await supabase
         .from("book_authors")
         .select("book_id")
         .ilike("authors.name", `%${query}%`);
 
-      if (!authorError && authorIds) {
-        authorIds.forEach(item => bookIds.add(item.book_id));
-      } else if (authorError) {
-        console.error("Author search error:", authorError.message);
+      if (!authorError && authorMatches && authorMatches.length > 0) {
+        const bookIdsFromAuthors = authorMatches.map(item => item.book_id);
+        
+        // Fetch those books with full data
+        const { data: authorBookResults } = await supabase
+          .from("books")
+          .select(baseSelect)
+          .in("book_id", bookIdsFromAuthors);
+        
+        if (authorBookResults) {
+          data = data.concat(authorBookResults);
+        }
       }
 
     } else if (type === "title") {
@@ -81,21 +77,28 @@ router.get("/search", async (req, res) => {
         .ilike("title", `%${query}%`);
 
       if (!error && results) {
-        results.forEach(book => bookIds.add(book.book_id));
-      } else if (error) {
-        console.error("Title search error:", error.message);
+        data = results;
       }
 
     } else if (type === "author") {
-      const { data: results, error } = await supabase
+      // Get matching book_ids from book_authors
+      const { data: authorMatches, error: authorError } = await supabase
         .from("book_authors")
         .select("book_id")
         .ilike("authors.name", `%${query}%`);
 
-      if (!error && results) {
-        results.forEach(item => bookIds.add(item.book_id));
-      } else if (error) {
-        console.error("Author search error:", error.message);
+      if (!authorError && authorMatches && authorMatches.length > 0) {
+        const bookIdsFromAuthors = authorMatches.map(item => item.book_id);
+        
+        // Fetch those books with full data
+        const { data: authorBookResults } = await supabase
+          .from("books")
+          .select(baseSelect)
+          .in("book_id", bookIdsFromAuthors);
+        
+        if (authorBookResults) {
+          data = authorBookResults;
+        }
       }
 
     } else if (type === "subject") {
@@ -105,38 +108,20 @@ router.get("/search", async (req, res) => {
         .ilike("categories.category_name", `%${query}%`);
 
       if (!error && results) {
-        results.forEach(book => bookIds.add(book.book_id));
-      } else if (error) {
-        console.error("Subject search error:", error.message);
+        data = results;
       }
     }
 
-    // Convert Set to Array
-    const bookIdsArray = Array.from(bookIds);
+    // Deduplicate by book_id - keep first occurrence
+    const uniqueBooks = new Map();
+    data.forEach(book => {
+      if (!uniqueBooks.has(book.book_id)) {
+        uniqueBooks.set(book.book_id, book);
+      }
+    });
 
-    if (bookIdsArray.length === 0) {
-      console.log("[OPAC Search] No matching books found");
-      return res.status(200).json([]);
-    }
-
-    // Now fetch all matching books with their authors in one query
-    const { data: booksData, error: booksError } = await supabase
-      .from("books")
-      .select(`
-        ${baseSelect},
-        book_authors(
-          authors(name)
-        )
-      `)
-      .in("book_id", bookIdsArray);
-
-    if (booksError) {
-      console.error("Books fetch error:", booksError.message);
-      return res.status(200).json([]);
-    }
-
-    // Format the response
-    const formattedData = (booksData || []).map(book => {
+    // Flatten authors and format data
+    const formattedData = Array.from(uniqueBooks.values()).map(book => {
       const authorNames = book.book_authors
         ?.map(ba => ba.authors?.name)
         .filter(Boolean)
@@ -160,7 +145,7 @@ router.get("/search", async (req, res) => {
       };
     });
 
-    console.log(`[OPAC Search] Found ${formattedData.length} results`);
+    console.log(`[OPAC Search] Found ${formattedData.length} results (after deduplication)`);
 
     return res.status(200).json(formattedData);
 
