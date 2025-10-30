@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useRef } from "react";
 import styles from "./AttendanceNFC.module.css";
 
 interface NFCReaderModalProps {
@@ -7,144 +6,277 @@ interface NFCReaderModalProps {
   onSuccess?: (userName: string, readerNumber: number) => void;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const API_BASE_URL = "https://librax-kiosk-api.onrender.com";
 
 const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) => {
-  const navigate = useNavigate();
-  const [isReading, setIsReading] = useState(true);
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [scanRequestId, setScanRequestId] = useState<string | null>(null);
   const [nfcSuccess, setNfcSuccess] = useState(false);
   const [nfcFailed, setNfcFailed] = useState(false);
+  const [showManualInput, setShowManualInput] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
   const [readerNumber, setReaderNumber] = useState<number | null>(null);
   const [scannedUid, setScannedUid] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>("");
+  const [manualIdInput, setManualIdInput] = useState<string>("");
 
+  // 🟢 Automatically request scan when modal opens
+  const initialized = useRef(false);
+
+useEffect(() => {
+  if (!initialized.current) {
+    initialized.current = true;
+    initiateScanRequest();
+  }
+
+  return () => {
+    cancelScanRequest();
+  };
+}, []);
+
+  // 🟢 Start polling when scan request created
   useEffect(() => {
-    startNfcReading();
-  }, []);
+    if (scanRequestId) {
+      startPollingScanStatus(scanRequestId);
+    }
+    return () => {
+      if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+    };
+  }, [scanRequestId]);
 
-  const scanAndLog = async (nfc_uid: string) => {
-    console.log("📤 Sending to API:", nfc_uid);
+    // 🧹 Clear any existing or stuck scan requests before starting a new one
+  const clearOldScanRequests = async () => {
+    try {
+      console.log("🧹 Clearing old scan requests...");
+      const res = await fetch(`${API_BASE_URL}/attendance/clear-old-requests`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: "web-session-1" }), // optional if you track by session
+      });
 
-    const apiUrl = `https://${API_BASE_URL}/api/attendance/record`;
-    console.log("🌐 API URL:", apiUrl);
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        console.warn("⚠️ Failed to clear old requests:", data.message || "Unknown error");
+      } else {
+        console.log(`✅ Cleared ${data.clearedCount || 0} old requests`);
+      }
+    } catch (err) {
+      console.warn("⚠️ Could not clear old requests:", err);
+    }
+  };
 
-    const res = await fetch(apiUrl, {
+  const initiateScanRequest = async () => {
+    try {
+      setNfcSuccess(false);
+      setNfcFailed(false);
+      setErrorMessage("");
+      setUserName(null);
+      setReaderNumber(null);
+      setScannedUid(null);
+
+      // 🧹 Make sure no previous requests are pending before creating a new one
+      await clearOldScanRequests();
+
+      console.log("📡 Sending new scan request...");
+
+      const res = await fetch(`${API_BASE_URL}/attendance/request-scan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: "web-session-1" }),
+      });
+
+      const data = await res.json();
+      console.log("🧾 Scan request response:", data);
+
+      if (!res.ok || !data.success) throw new Error(data.message || "Failed to request scan");
+
+      setScanRequestId(data.requestId);
+      console.log(`✅ Scan request started. Request ID: ${data.requestId}`);
+    } catch (err: any) {
+      console.error("❌ Failed to create scan request:", err);
+      setErrorMessage(err.message || "Failed to initiate scan request");
+      setNfcFailed(true);
+    }
+  };
+
+
+  const cancelScanRequest = async () => {
+    if (!scanRequestId) return;
+    try {
+      console.log(`🛑 Cancelling scan request ID: ${scanRequestId}`);
+      await fetch(`${API_BASE_URL}/attendance/cancel-request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId: scanRequestId }),
+      });
+    } catch (err) {
+      console.warn("⚠️ Failed to cancel scan request (might already be cleared):", err);
+    } finally {
+      setScanRequestId(null);
+      if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+    }
+  };
+
+  const startPollingScanStatus = (requestId: string) => {
+    if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+    console.log("🔄 Starting polling for scan status...");
+
+    pollingIntervalRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/attendance/scan-status?requestId=${requestId}`);
+        const data = await res.json();
+
+        if (!res.ok || !data.success) return;
+
+        const request = data.request;
+        if (!request) return;
+
+        if (request.status === "pending") {
+          console.log("⏸️ Waiting for card scan...");
+          return;
+        }
+
+        if (request.status === "completed" && request.response) {
+          console.log("✅ Scan completed successfully!");
+          try {
+            const result = JSON.parse(request.response);
+            if (result?.user) {
+              const fullName = `${result.user.first_name} ${result.user.last_name}`;
+              setUserName(fullName);
+              setReaderNumber(result.reader_number);
+              setScannedUid(result.scannedUid);
+              setNfcSuccess(true);
+              setNfcFailed(false);
+              onSuccess?.(fullName, result.reader_number);
+              console.log("🎉 Attendance recorded for:", fullName);
+            } else {
+              throw new Error("Invalid response data");
+            }
+          } catch (parseErr) {
+            console.error("❌ Failed to parse response JSON:", parseErr);
+            setErrorMessage("Failed to read scan data");
+            setNfcFailed(true);
+          }
+          if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+        }
+      } catch (err) {
+        console.error("⚠️ Polling scan status error:", err);
+      }
+    }, 2000);
+  };
+
+  const manualAttendance = async (student_id: string) => {
+    const res = await fetch(`${API_BASE_URL}/attendance/manual`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nfc_uid }),
+      body: JSON.stringify({ student_id }),
     });
-
     const data = await res.json();
-    console.log("📥 API Response:", data);
-
-    if (!res.ok || !data.success) {
-      throw new Error(data.message || "Failed to record attendance");
-    }
+    if (!res.ok || !data.success) throw new Error(data.message || "Failed to record attendance");
     return data;
   };
 
-  const startNfcReading = async () => {
-    setIsReading(true);
-    setNfcSuccess(false);
+  // 🟡 When clicking "here" -> cancel scan & show manual input
+  const handleManualInputClick = async () => {
+    await cancelScanRequest();
+    setShowManualInput(true);
     setNfcFailed(false);
-    setScannedUid(null);
-    setErrorMessage("");
-
-    try {
-      if ("NDEFReader" in window) {
-        const ndef = new (window as any).NDEFReader();
-        await ndef.scan();
-        console.log("✅ NFC scanning started...");
-
-        ndef.onreading = async (event: any) => {
-          const nfc_uid = event.serialNumber;
-          setScannedUid(nfc_uid);
-          console.log("🔹 NFC UID detected:", nfc_uid);
-          console.log("🔹 Full event:", event);
-
-          try {
-            const result = await scanAndLog(nfc_uid);
-            const fullName = `${result.user.first_name} ${result.user.last_name}`;
-            setUserName(fullName);
-            setReaderNumber(result.reader_number);
-            setNfcSuccess(true);
-            setIsReading(false);
-            // Delay calling onSuccess until user clicks continue
-            // onSuccess?.(fullName, result.reader_number);  <-- REMOVE here
-          } catch (err: any) {
-            console.error("❌ Scan or log failed:", err);
-            setErrorMessage(err.message || "Unknown error");
-            setNfcFailed(true);
-            setIsReading(false);
-          }
-        };
-
-        ndef.onreadingerror = (error: any) => {
-          console.error("❌ NFC reading error:", error);
-          setErrorMessage("NFC reading error");
-          setNfcFailed(true);
-          setIsReading(false);
-        };
-      } else {
-        console.warn("⚠️ Web NFC not supported — simulating...");
-        await simulateFallback();
-      }
-    } catch (error: any) {
-      console.error("❌ NFC init failed:", error);
-      setErrorMessage(error.message || "Failed to initialize NFC");
-      setNfcFailed(true);
-      setIsReading(false);
-    }
   };
 
-  const simulateFallback = async () => {
-    await new Promise((r) => setTimeout(r, 1000));
+  // 🟢 Manual confirm
+  const handleManualConfirm = async () => {
+    if (!manualIdInput.trim()) {
+      setErrorMessage("Please enter an ID number");
+      return;
+    }
     try {
-      const result = await scanAndLog("SIMULATED_UID_123");
+      const result = await manualAttendance(manualIdInput.trim());
       const fullName = `${result.user.first_name} ${result.user.last_name}`;
       setUserName(fullName);
       setReaderNumber(result.reader_number);
-      setScannedUid(result.scannedUid);
       setNfcSuccess(true);
+      setShowManualInput(false);
+      setNfcFailed(false);
     } catch (err: any) {
-      console.error("❌ Simulation failed:", err);
-      setErrorMessage(err.message || "Simulation failed");
-      setNfcFailed(true);
+      console.error("❌ Manual attendance failed:", err);
+      setErrorMessage(err.message || "Failed to record attendance");
+      setNfcFailed(false);
+      setShowManualInput(false);
     }
-    setIsReading(false);
   };
 
-  const handleCloseAll = () => {
+  // 🟡 Cancel inside manual input -> restart scanning
+  const handleManualCancel = async () => {
+    setShowManualInput(false);
+    await initiateScanRequest();
+  };
+
+  // 🟥 Cancel whole modal
+  const handleCloseAll = async () => {
+    await cancelScanRequest();
     setNfcFailed(false);
     setNfcSuccess(false);
+    setShowManualInput(false);
     setScannedUid(null);
     setErrorMessage("");
     setUserName(null);
     setReaderNumber(null);
+    setManualIdInput("");
     onClose();
   };
 
   const handleContinueBrowsing = () => {
-    // Fire onSuccess now after confirmation
     onSuccess?.(userName || "", readerNumber || 1);
     handleCloseAll();
-    navigate("/");
   };
 
   return (
-    <div className={styles.modalOverlay} onClick={(e) => e.target === e.currentTarget && handleCloseAll()}>
-      {isReading && !nfcSuccess && !nfcFailed && (
+    <div
+      className={styles.modalOverlay}
+      onClick={(e) => e.target === e.currentTarget && handleCloseAll()}
+    >
+      {!nfcSuccess && !showManualInput && !nfcFailed && (
         <div className={styles.nfcCard}>
           <h2 className={styles.readyTitle}>Ready to Scan</h2>
           <div className={styles.nfcIcon}></div>
-          <p className={styles.instruction}>Tap your NFC card to record attendance</p>
-          {scannedUid && <p className={styles.scannedUid}>Scanned UID: {scannedUid}</p>}
+          <p className={styles.instruction}>Please scan your NFC card at the ESP32 kiosk</p>
+          {scannedUid && <p className={styles.scannedUid}>Last Scanned UID: {scannedUid}</p>}
+          <p className={styles.manualInputLink}>
+            No physical ID? Input your student/faculty ID number{" "}
+            <span className={styles.linkText} onClick={handleManualInputClick}>
+              here
+            </span>
+          </p>
           <button className={styles.cancelButton} onClick={handleCloseAll}>Cancel</button>
         </div>
       )}
 
-      {nfcFailed && (
+      {showManualInput && (
+        <div className={styles.manualInputCard}>
+          <h2 className={styles.manualTitle}>Input your ID Number Here</h2>
+          <div className={styles.inputGroup}>
+            <label className={styles.inputLabel}>Student/Faculty ID No:</label>
+            <input
+              type="text"
+              className={styles.manualInput}
+              placeholder="Enter your ID number"
+              value={manualIdInput}
+              onChange={(e) => setManualIdInput(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <div className={styles.buttonGroup}>
+            <button className={styles.cancelButton} onClick={handleManualCancel}>
+              Cancel
+            </button>
+            <button className={styles.primaryButton} onClick={handleManualConfirm}>
+              Confirm
+            </button>
+          </div>
+        </div>
+      )}
+
+      {nfcFailed && !showManualInput && (
         <div className={styles.failCard}>
           <h2 className={styles.failTitle}>Scan Failed</h2>
           <p className={styles.failMessage}>
@@ -152,15 +284,21 @@ const AttendanceNFC: React.FC<NFCReaderModalProps> = ({ onClose, onSuccess }) =>
           </p>
           {scannedUid && <p className={styles.scannedUid}>Last UID: {scannedUid}</p>}
           <div className={styles.buttonGroup}>
-            <button className={styles.primaryButton} onClick={startNfcReading}>Try Again</button>
-            <button className={styles.cancelButton} onClick={handleCloseAll}>Cancel</button>
+            <button className={styles.primaryButton} onClick={initiateScanRequest}>
+              Try Again
+            </button>
+            <button className={styles.cancelButton} onClick={handleCloseAll}>
+              Cancel
+            </button>
           </div>
         </div>
       )}
 
       {nfcSuccess && (
         <div className={styles.modalContent}>
-          <button className={styles.closeButton} onClick={handleCloseAll}>×</button>
+          <button className={styles.closeButton} onClick={handleCloseAll}>
+            ×
+          </button>
           <div className={styles.contentWrapper}>
             <div className={styles.successIcon}>✅</div>
             <h2 className={styles.title}>Attendance Recorded</h2>
