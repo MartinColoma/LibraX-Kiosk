@@ -9,7 +9,7 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Add relaxed Content Security Policy header middleware for development
+// Optional: for local dev with Vite frontend
 app.use((req, res, next) => {
   res.setHeader(
     "Content-Security-Policy",
@@ -18,53 +18,76 @@ app.use((req, res, next) => {
   next();
 });
 
+// 🧠 AI Chat endpoint
 app.post("/ai-chat", async (req, res) => {
   try {
     const { prompt } = req.body;
+    if (!prompt) return res.status(400).json({ response: "Prompt is required" });
 
-    if (!prompt) {
-      return res.status(400).json({ response: "Prompt is required" });
-    }
-
-    const scriptPath = path.join(__dirname, "..", "backend", "LibraX_ChatBot", "ai", "libraX_Bot.py");
+    const scriptPath = path.join(
+      __dirname,
+      "..",
+      "backend",
+      "LibraX_ChatBot",
+      "ai",
+      "libraX_Bot.py"
+    );
 
     const pythonProcess = spawn("python", [scriptPath]);
-    let aiResponse = "";
-    let errorResponse = "";
+    let stdoutData = "";
+    let stderrData = "";
 
+    // ✅ Write prompt to Python stdin
     pythonProcess.stdin.write(prompt);
     pythonProcess.stdin.end();
 
+    // ✅ Collect stdout and stderr
     pythonProcess.stdout.on("data", (data) => {
-      aiResponse += data.toString();
+      stdoutData += data.toString();
     });
 
     pythonProcess.stderr.on("data", (data) => {
-      errorResponse += data.toString();
+      stderrData += data.toString();
     });
 
     pythonProcess.on("close", (code) => {
-      if (errorResponse) {
-        console.warn("Python script stderr output:", errorResponse);
+      if (stderrData.trim()) {
+        console.log("🐍 Python Debug:\n", stderrData);
       }
 
       if (code !== 0) {
-        console.error(`Python script exited with code ${code}`);
-        return res.status(500).json({ response: "Internal Server Error (Python chatbot failed)." });
+        console.error(`Python exited with code ${code}`);
+        return res
+          .status(500)
+          .json({ response: "Internal Server Error (Python failed)" });
       }
 
-      if (!aiResponse) {
-        return res.status(500).json({ response: "Internal Server Error (Empty chatbot response)." });
+      // 🧩 Filter out any debug lines if Python accidentally prints something
+      const cleanResponse = stdoutData
+        .split("\n")
+        .filter(
+          (line) =>
+            !line.trim().startsWith("DEBUG") &&
+            !line.trim().startsWith("Traceback") &&
+            !line.trim().startsWith("File")
+        )
+        .join("\n")
+        .trim();
+
+      if (!cleanResponse) {
+        return res
+          .status(500)
+          .json({ response: "Empty response from chatbot." });
       }
 
-      res.json({ response: aiResponse.trim() });
+      res.json({ response: cleanResponse });
     });
-  } catch (error) {
-    console.error("Chatbot API error:", error);
+  } catch (err) {
+    console.error("Chatbot API error:", err);
     res.status(500).json({ response: "Internal Server Error (API)." });
   }
 });
 
 app.listen(port, () => {
-  console.log(`API server running at http://localhost:${port}`);
+  console.log(`✅ API server running at http://localhost:${port}`);
 });

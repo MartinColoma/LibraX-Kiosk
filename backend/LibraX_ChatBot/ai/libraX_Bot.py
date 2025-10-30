@@ -1,29 +1,22 @@
-# libraX_Bot.py
 import os
 import re
 import sys
-import time
-import traceback
+from supabase import create_client
+from dotenv import load_dotenv
 import subprocess
 import difflib
-from dotenv import load_dotenv
-from supabase import create_client
+import traceback
 
-# Load environment variables from .env (make sure to NOT commit .env to git)
+# Load environment variables
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"))
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 
 if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
-    raise Exception("SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set (put them in .env)")
+    raise Exception("SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set")
 
 supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-
-# ---------- config ----------
-MIN_CONFIDENCE = 0.30
-SEARCH_RETRY_DELAY = 1.0
-SEARCH_RETRY_COUNT = 2
 
 keywords = [
     "book", "author", "isbn", "catalog", "borrow", "library",
@@ -40,15 +33,14 @@ inventory_keywords = [
     "find", "borrow", "checkout", "is", "can i", "library"
 ]
 
+MIN_CONFIDENCE = 0.3
 
-# ---------- helpers ----------
 def is_available_field(val):
     return val is not None and str(val).strip().upper() not in ("", "NONE", "NULL", "EMPTY")
 
-
 class LibraryUtils:
     @staticmethod
-    def is_library_keyword(prompt: str) -> bool:
+    def is_library_keyword(prompt):
         words = prompt.lower().split()
         for w in words:
             if difflib.get_close_matches(w, keywords, n=1, cutoff=0.7):
@@ -56,127 +48,75 @@ class LibraryUtils:
         return False
 
     @staticmethod
-    def extract_book_name(prompt: str) -> str:
+    def extract_book_name(prompt):
+        cleaned = prompt.lower()
         ignore_words = [
             "when", "what", "year", "published", "date", "is", "was", "book",
             "the", "of", "who", "author", "in", "on", "and", "edition", "subtitle",
             "description", "language", "quantity", "publication", "copies",
             "available", "status", "publisher", "genre", "can i", "find",
-            "borrow", "checkout", "library"
+            "borrow", "checkout", "library", "isbn", "left", "still"
         ]
-        cleaned = prompt.lower()
         for w in ignore_words:
             cleaned = re.sub(r'\b' + re.escape(w) + r'\b', '', cleaned)
         cleaned = cleaned.replace("?", "").replace(".", "").strip()
-        # Prefer quoted title if user used quotes
         match = re.search(r'"(.+?)"', cleaned) or re.search(r"'(.+?)'", cleaned)
         if match:
-            return match.group(1).strip().title()
-        return cleaned.strip().title()
+            return match.group(1).title()
+        return cleaned.title()
 
     @staticmethod
-    def similar_match_score(a: str, b: str) -> float:
-        return difflib.SequenceMatcher(None, (a or "").lower(), (b or "").lower()).ratio()
+    def similar_match_score(str1, str2):
+        return difflib.SequenceMatcher(None, str1.lower(), str2.lower()).ratio()
 
     @staticmethod
-    def _safe_execute(query_fn):
-        """
-        helper to catch Postgrest exceptions that sometimes return HTML (Cloudflare 5xx).
-        returns result or None on failure.
-        """
+    def query_supabase_book(prompt):
+        book_name = LibraryUtils.extract_book_name(prompt)
+        print(f"DEBUG: Extracted book_name: '{book_name}'", file=sys.stderr)
+
         try:
-            return query_fn()
+            result = supabase.table("books").select("*").or_(
+                f"title.ilike.%{book_name}%,subtitle.ilike.%{book_name}%"
+            ).execute()
+
+            if not result.data:
+                print("DEBUG: No matching book found in 'books'", file=sys.stderr)
+                return None
+
+            best_match = None
+            best_score = 0
+            for b in result.data:
+                score = LibraryUtils.similar_match_score(b.get('title', ''), book_name)
+                if b.get('subtitle'):
+                    score = max(score, LibraryUtils.similar_match_score(b.get('subtitle', ''), book_name))
+                if score > best_score:
+                    best_score = score
+                    best_match = b
+
+            if not best_match or best_score < MIN_CONFIDENCE:
+                print("DEBUG: No confident match found", file=sys.stderr)
+                return None
+
+            # Get authors
+            book_id = best_match.get("book_id")
+            author_links = supabase.table("book_authors").select("author_id").eq("book_id", book_id).execute()
+            authors = []
+            if author_links.data:
+                author_ids = [link["author_id"] for link in author_links.data]
+                author_res = supabase.table("authors").select("name").in_("author_id", author_ids).execute()
+                if author_res.data:
+                    authors = [a["name"] for a in author_res.data]
+
+            best_match["authors"] = authors
+            print(f"DEBUG: Book '{best_match.get('title')}' authors={authors}", file=sys.stderr)
+            return best_match
+
         except Exception as e:
-            # Log the full exception for debugging; caller will handle None response
-            print("DEBUG Supabase exception:", e, file=sys.stderr)
+            print(f"DEBUG Supabase exception: {e}", file=sys.stderr)
             traceback.print_exc(file=sys.stderr)
             return None
 
-    @staticmethod
-    def query_supabase_book(prompt: str):
-        """
-        1) extract book name from prompt
-        2) try ilike title, then subtitle
-        3) fallback: load all books and fuzzy-match locally
-        4) fetch authors via book_authors -> authors
-        """
-        book_name = LibraryUtils.extract_book_name(prompt)
-        print(f"DEBUG: Extracted book_name: '{book_name}'", file=sys.stderr)
-        if not book_name:
-            return None
-
-        # Try searching title ilike first (safer than pulling entire table)
-        for attempt in range(SEARCH_RETRY_COUNT):
-            res = LibraryUtils._safe_execute(
-                lambda: supabase.table("books").select("*").ilike("title", f"%{book_name}%").execute()
-            )
-            if res is None:
-                time.sleep(SEARCH_RETRY_DELAY)
-                continue
-            if res.data:
-                candidates = res.data
-                break
-            # try subtitle search
-            res2 = LibraryUtils._safe_execute(
-                lambda: supabase.table("books").select("*").ilike("subtitle", f"%{book_name}%").execute()
-            )
-            if res2 is None:
-                time.sleep(SEARCH_RETRY_DELAY)
-                continue
-            candidates = res2.data or []
-            break
-        else:
-            # final fallback: load all books (only if previous failed)
-            all_res = LibraryUtils._safe_execute(lambda: supabase.table("books").select("*").execute())
-            candidates = all_res.data if all_res and all_res.data else []
-
-        if not candidates:
-            print("DEBUG: No matching book rows returned by DB", file=sys.stderr)
-            return None
-
-        # fuzzy match among candidates
-        best_match = None
-        best_score = 0.0
-        for b in candidates:
-            t = b.get("title") or ""
-            s = b.get("subtitle") or ""
-            score = LibraryUtils.similar_match_score(t, book_name)
-            score = max(score, LibraryUtils.similar_match_score(s, book_name))
-            if score > best_score:
-                best_score = score
-                best_match = b
-
-        print(f"DEBUG: best_score={best_score} title={best_match.get('title') if best_match else None}", file=sys.stderr)
-        if not best_match or best_score < MIN_CONFIDENCE:
-            return None
-
-        # fetch authors via junction
-        book_id = best_match.get("book_id")
-        if not book_id:
-            # try alternate keys if your schema used a different primary column
-            book_id = best_match.get("id")  # just-in-case
-        if not book_id:
-            print("DEBUG: no book_id found on matched row", file=sys.stderr)
-            return best_match  # return book row without authors
-
-        link_res = LibraryUtils._safe_execute(
-            lambda: supabase.table("book_authors").select("author_id").eq("book_id", book_id).execute()
-        )
-        authors = []
-        if link_res and link_res.data:
-            # collect author_ids and get names in one or few queries
-            author_ids = [link.get("author_id") for link in link_res.data if link.get("author_id") is not None]
-            # fetch names; loop is fine for small author count
-            for aid in author_ids:
-                a_res = LibraryUtils._safe_execute(lambda aid=aid: supabase.table("authors").select("name").eq("author_id", aid).execute())
-                if a_res and a_res.data:
-                    authors.append(a_res.data[0].get("name"))
-        best_match["authors"] = authors
-        return best_match
-
-
-# ---------- AI fallback (unchanged) ----------
-def call_library_ai(prompt: str) -> str:
+def call_library_ai(prompt):
     try:
         proc = subprocess.run(
             ["ollama", "run", "library-bot"],
@@ -186,129 +126,111 @@ def call_library_ai(prompt: str) -> str:
             timeout=120
         )
         if proc.stderr:
-            print("DEBUG ollama error:", proc.stderr.decode("utf-8"), file=sys.stderr)
+            print(f"DEBUG ollama error: {proc.stderr.decode('utf-8')}", file=sys.stderr)
         return proc.stdout.decode("utf-8", errors="ignore").strip()
     except subprocess.TimeoutExpired:
         return "Sorry, the response took too long. Please try again."
 
-
-# ---------- response helpers ----------
-def get_field_response(book: dict, field: str, field_label: str = None, fallback_to_ai: bool = True):
-    if book and is_available_field(book.get(field)):
-        return f"{field_label or field.capitalize()} of '{book.get('title', 'this book')}' is {book.get(field)}."
-    elif fallback_to_ai:
-        return None
-    else:
-        return f"Sorry, the book or information is not found."
-
-
-def get_library_response(prompt: str) -> str:
-    greetings = ["hi", "hello", "hey", "good morning", "good afternoon", "good evening"]
+def get_library_response(prompt):
     lower_prompt = prompt.lower().strip()
+    greetings = ["hi", "hello", "hey", "good morning", "good afternoon", "good evening"]
 
+    # --- Greetings ---
     if any(g in lower_prompt for g in greetings):
         return "Hello! This is LibraX, your friendly library assistant. How may I help you today?"
 
+    # --- Borrow / return instructions ---
+    if "how to borrow" in lower_prompt:
+        return ("To borrow a book, search for the book in the OPAC search bar. "
+                "If it's available, click 'Request Item'. Scan your NFC or enter your account info manually. "
+                "A pop-up will show the book details. Enter your password to confirm, then wait for librarian approval. Happy reading!")
+
+    if "how to return overdue" in lower_prompt:
+        return ("To return an overdue book and pay fines, click the 'Return Book' button on your dashboard. "
+                "Scan your NFC card or manually enter your account info. You will see a list of overdue books. "
+                "Select the book you want to pay for. Confirm if your payment amount is complete, then pay using the coin slot on the kiosk. "
+                "After payment, insert the book into the kiosk slit to successfully return it.")
+
+    if "how to return" in lower_prompt:
+        return ("To return a book, click the 'Return Book' button on your dashboard. "
+                "Scan your NFC card or manually enter your account info. You will see a list of borrowed books. "
+                "Select the book you want to return, insert it into the kiosk slit, and it will be successfully returned.")
+
+    # --- Check if library-related ---
     if not LibraryUtils.is_library_keyword(prompt):
         return "Sorry, I can only help with library-related inquiries."
 
-    try:
-        book = LibraryUtils.query_supabase_book(prompt)
+    # --- Query database ---
+    book = LibraryUtils.query_supabase_book(prompt)
+    book_found = book is not None
+    book_name = LibraryUtils.extract_book_name(prompt)
 
-        # check fields requested
-        for attribute, label in [
-            ("authors", "Author"),
-            ("isbn", "ISBN"),
-            ("description", "Description"),
-            ("available_copies", "Available Copies"),
-            ("edition", "Edition"),
-            ("language", "Language"),
-            ("publisher", "Publisher"),
-        ]:
-            if attribute.replace("_", " ") in lower_prompt:
-                if attribute == "authors":
-                    if book and book.get("authors"):
-                        # nice grammar for multiple authors
-                        authors = book["authors"]
-                        if len(authors) == 1:
-                            return f"The author of '{book.get('title')}' is {authors[0]}."
-                        elif len(authors) == 2:
-                            return f"The authors of '{book.get('title')}' are {authors[0]} and {authors[1]}."
-                        else:
-                            return f"The authors of '{book.get('title')}' are {', '.join(authors[:-1])}, and {authors[-1]}."
-                    elif book:
-                        return f"Author of '{book.get('title')}' is not available in the database."
-                    else:
-                        return "Sorry, that book is not found in the library database."
-                resp = get_field_response(book, attribute, label)
-                if resp:
-                    return resp
-                else:
-                    return call_library_ai(prompt)
-
-        # availability check
-        if any(k in lower_prompt for k in inventory_keywords):
-            if book and is_available_field(book.get("available_copies")):
-                try:
-                    count = int(book.get("available_copies"))
-                except Exception:
-                    count = 0
-                if count > 0:
-                    return f"Yes, '{book.get('title')}' is available. There {'is' if count == 1 else 'are'} {count} {'copy' if count == 1 else 'copies'} left."
-                else:
-                    return f"No, '{book.get('title')}' is currently unavailable."
-            else:
-                return "Sorry, that book is not found in the library database."
-
-        # publication year
-        if "year" in lower_prompt or "publication" in lower_prompt:
-            if book and book.get("publication_year") is not None:
-                return f"'{book.get('title')}' was published in {book.get('publication_year')}."
-            elif book:
-                return f"Publication year of '{book.get('title')}' is not available in the database."
-            else:
-                return "Sorry, that book is not found in the library database."
-
-        if "subtitle" in lower_prompt:
-            if book and is_available_field(book.get("subtitle")):
-                return f"The subtitle of '{book.get('title')}' is {book.get('subtitle')}."
-            elif book:
-                return f"Subtitle of '{book.get('title')}' is not available in the database."
-            else:
-                return "Sorry, that book is not found in the library database."
-
-        # default: return full info or fallback to AI
-        if book:
-            authors = ", ".join(book.get("authors", [])) or "Unknown"
-            return (
-                f"Book: '{book.get('title')}', "
-                f"Author: {authors}, "
-                f"Available Copies: {book.get('available_copies')}, "
-                f"ISBN: {book.get('isbn')}, "
-                f"Subtitle: {book.get('subtitle')}, "
-                f"Description: {book.get('description')}, "
-                f"Publication Year: {book.get('publication_year')}, "
-                f"Edition: {book.get('edition')}, "
-                f"Language: {book.get('language')}, "
-                f"Publisher: {book.get('publisher')}"
-            )
+    # --- Author ---
+    if "author" in lower_prompt or "who wrote" in lower_prompt:
+        if book_found and book.get("authors"):
+            return f"The author of '{book.get('title')}' is {', '.join(book['authors'])}."
         else:
-            return call_library_ai(prompt)
+            return f"Sorry, '{book_name}' is unavailable in the library."
 
-    except Exception as e:
-        print("DEBUG: top-level error:", e, file=sys.stderr)
-        traceback.print_exc(file=sys.stderr)
-        return "Sorry, an error occurred while processing your request."
+    # --- ISBN ---
+    if "isbn" in lower_prompt:
+        if book_found and book.get("isbn"):
+            return f"The ISBN of '{book.get('title')}' is {book.get('isbn')}."
+        else:
+            return f"Sorry, '{book_name}' is unavailable in the library."
 
+    # --- Subtitle ---
+    if "subtitle" in lower_prompt:
+        if book_found and is_available_field(book.get("subtitle")):
+            return f"The subtitle of '{book.get('title')}' is {book.get('subtitle')}."
+        else:
+            return f"Sorry, '{book_name}' is unavailable in the library."
+
+    # --- Edition ---
+    if "edition" in lower_prompt:
+        if book_found and is_available_field(book.get("edition")):
+            return f"The edition of '{book.get('title')}' is {book.get('edition')}."
+        else:
+            return f"Sorry, '{book_name}' is unavailable in the library."
+
+    # --- Year / publication ---
+    if "year" in lower_prompt or "published" in lower_prompt or "publication" in lower_prompt:
+        if book_found and is_available_field(book.get("publication_year")):
+            return f"'{book.get('title')}' was published in {book.get('publication_year')}."
+        else:
+            return f"Sorry, '{book_name}' is unavailable in the library."
+
+    # --- Language ---
+    if "language" in lower_prompt:
+        if book_found and is_available_field(book.get("language")):
+            return f"The language of '{book.get('title')}' is {book.get('language')}."
+        else:
+            return f"Sorry, '{book_name}' is unavailable in the library."
+
+    # --- Availability / copies ---
+    if any(k in lower_prompt for k in inventory_keywords):
+        if book_found and is_available_field(book.get("available_copies")):
+            count = int(book.get("available_copies"))
+            return f"Yes, '{book.get('title')}' is available. There {'is' if count==1 else 'are'} {count} {'copy' if count==1 else 'copies'} left."
+        else:
+            return f"Sorry, '{book_name}' is unavailable in the library."
+
+    # --- Default book info ---
+    if book_found:
+        authors = ", ".join(book.get("authors", [])) or "Unknown"
+        return (f"Book: '{book.get('title')}', Author: {authors}, "
+                f"Available Copies: {book.get('available_copies')}, ISBN: {book.get('isbn')}, "
+                f"Subtitle: {book.get('subtitle')}, Description: {book.get('description')}, "
+                f"Publication Year: {book.get('publication_year')}, Edition: {book.get('edition')}, "
+                f"Language: {book.get('language')}, Publisher: {book.get('publisher')}")
+
+    return f"Sorry, '{book_name}' is unavailable in the library."
 
 if __name__ == "__main__":
     try:
         prompt_input = sys.stdin.read().strip()
-        if not prompt_input:
-            print("Send a prompt via stdin. Example: echo \"Who is the author of Harry Potter?\" | python libraX_Bot.py")
-            sys.exit(0)
         response_output = get_library_response(prompt_input)
         print(response_output)
-    except Exception:
+    except:
         traceback.print_exc(file=sys.stderr)
         print("Sorry, an error occurred while processing your request.", file=sys.stdout)
