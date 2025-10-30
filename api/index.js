@@ -5,6 +5,7 @@ const dotenv = require("dotenv");
 dotenv.config();
 
 const attendanceRouter = require("./routes/PatronAttendance/attendance"); 
+const opacSearchRouter = require("./routes/opacSearch");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -25,6 +26,7 @@ app.options("*", cors(corsOptions)); // handle preflight requests
 
 // Routes
 app.use("/attendance", attendanceRouter);
+app.use("/opac", opacSearchRouter);
 
 // Health check
 app.get("/", (req, res) => {
