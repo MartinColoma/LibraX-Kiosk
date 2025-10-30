@@ -120,7 +120,7 @@ export default function OPAC() {
 
     try {
       const sessionId = 'opac_' + Date.now();
-      const response = await axios.post(`${API_BASE_URL}/books/request-scan`, {
+      const response = await axios.post(`${API_BASE_URL}/attendance/request-scan`, {
         sessionId,
         book_id: book.book_id
       });
@@ -153,7 +153,7 @@ export default function OPAC() {
 
       try {
         const response = await axios.get(
-          `${API_BASE_URL}/books/scan-status?requestId=${requestId}`
+          `${API_BASE_URL}/attendance/scan-status?requestId=${requestId}`
         );
 
         if (response.data.success && response.data.request.status === 'completed') {
@@ -201,7 +201,7 @@ export default function OPAC() {
   const closeScanModal = async () => {
     if (scanRequestId) {
       try {
-        await axios.post(`${API_BASE_URL}/books/cancel-request`, {
+        await axios.post(`${API_BASE_URL}/attendance/cancel-request`, {
           requestId: scanRequestId
         });
       } catch (error) {
