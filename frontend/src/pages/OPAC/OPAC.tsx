@@ -52,6 +52,9 @@ export default function OPAC() {
   const [scanMessage, setScanMessage] = useState('');
   const [scannedUser, setScannedUser] = useState<UserData | null>(null);
   const [requestSuccess, setRequestSuccess] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordError, setPasswordError] = useState('');
 
   const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSearchType(e.target.value);
@@ -198,6 +201,30 @@ export default function OPAC() {
     }
   };
 
+  // Password verification function
+  const requestWithPassword = async () => {
+    if (!passwordInput || !scannedUser || !selectedBook) return;
+
+    try {
+      const verifyResp = await axios.post(`${API_BASE_URL}/auth/verify-password`, {
+        user_id: scannedUser.user_id,
+        password: passwordInput,
+      });
+
+      if (verifyResp.data.success) {
+        setPasswordError('');
+        setShowPasswordModal(false);
+        await confirmBookRequest();
+      }
+    } catch (error: any) {
+      if (error.response && error.response.status === 401) {
+        setPasswordError('Incorrect password. Please try again.');
+      } else {
+        setPasswordError('Failed to verify password. Try again later.');
+      }
+    }
+  };
+
   const closeScanModal = async () => {
     if (scanRequestId) {
       try {
@@ -214,6 +241,9 @@ export default function OPAC() {
     setScanMessage('');
     setScannedUser(null);
     setRequestSuccess(false);
+    setShowPasswordModal(false);
+    setPasswordInput('');
+    setPasswordError('');
   };
 
   return (
@@ -322,9 +352,7 @@ export default function OPAC() {
                     <div className={styles.bookAction}>
                       <button
                         className={`${styles.requestBtn} ${
-                          !isAvailable
-                            ? styles.disabledBtn
-                            : ''
+                          !isAvailable ? styles.disabledBtn : ''
                         }`}
                         disabled={!isAvailable}
                         onClick={() => startNFCScan(book)}
@@ -341,13 +369,12 @@ export default function OPAC() {
       </main>
 
       {/* NFC Scan Modal */}
-      {showScanModal && selectedBook && (
+      {showScanModal && selectedBook && !showPasswordModal && (
         <div className={styles.modalOverlay} onClick={closeScanModal}>
           <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
             <h3 className={styles.modalTitle}>Request Details</h3>
 
             {!scannedUser ? (
-              // Scan Phase
               <div className={styles.scanPhase}>
                 <div className={styles.nfcIcon}>📱)))</div>
                 <p className={styles.scanStatus}>{scanMessage || 'Waiting for NFC scan...'}</p>
@@ -356,7 +383,6 @@ export default function OPAC() {
                 </p>
               </div>
             ) : (
-              // Details Phase
               <div className={styles.modalContent}>
                 <div className={styles.section}>
                   <h4 className={styles.sectionTitle}>Book Information</h4>
@@ -396,11 +422,36 @@ export default function OPAC() {
               {scannedUser && !requestSuccess && (
                 <button
                   className={styles.requestBtn}
-                  onClick={confirmBookRequest}
+                  onClick={() => setShowPasswordModal(true)}
                 >
                   Request
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Password Prompt Modal */}
+      {showPasswordModal && (
+        <div className={styles.modalOverlay} onClick={() => setShowPasswordModal(false)}>
+          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <h3 className={styles.modalTitle}>Enter Password</h3>
+            <input
+              type="password"
+              value={passwordInput}
+              className={styles.searchInput}
+              placeholder="Enter your password"
+              onChange={(e) => setPasswordInput(e.target.value)}
+            />
+            {passwordError && <p className={styles.notAvailable}>{passwordError}</p>}
+            <div className={styles.modalActions}>
+              <button className={styles.cancelBtn} onClick={() => setShowPasswordModal(false)}>
+                Cancel
+              </button>
+              <button className={styles.requestBtn} onClick={requestWithPassword}>
+                Confirm
+              </button>
             </div>
           </div>
         </div>

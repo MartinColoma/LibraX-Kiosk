@@ -235,6 +235,173 @@
   cursor: not-allowed;
 }
 
+/* MODAL OVERLAY and MODAL POPUP */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(45, 24, 24, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.modal {
+  background: #fffaf6;
+  border-radius: 18px;
+  box-shadow: 0 10px 24px rgba(125, 46, 46, 0.15);
+  max-width: 490px;
+  width: 98vw;
+  padding: 36px 34px 24px 34px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border: 2px solid #7d2e2e;
+}
+
+.modalTitle {
+  font-size: 26px;
+  font-weight: 700;
+  color: #7d2e2e;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+/* NFC Scan Phase */
+.scanPhase {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #fff5f0;
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(125,46,46,0.10);
+  padding: 44px 18px 34px 18px;
+  margin-bottom: 20px;
+}
+
+.nfcIcon {
+  font-size: 60px;
+  color: #7d2e2e;
+  margin-bottom: 24px;
+}
+
+.scanStatus {
+  font-size: 16px;
+  font-weight: 600;
+  color: #7d2e2e;
+  margin-bottom: 8px;
+}
+
+.scanHint {
+  font-size: 15px;
+  color: #955353;
+}
+
+/* Request Details Phase */
+.modalContent {
+  display: flex;
+  gap: 20px;
+  width: 100%;
+  margin-bottom: 18px;
+}
+
+.section {
+  flex: 1;
+  background: #f7f5f2;
+  border-radius: 10px;
+  padding: 18px 15px;
+  box-shadow: 0 1px 4px rgba(125,46,46,0.06);
+}
+
+.sectionTitle {
+  color: #7d2e2e;
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 9px;
+}
+
+/* Details Lists */
+.section p {
+  margin: 7px 0;
+  font-size: 15px;
+  color: #2b2b2b;
+}
+
+/* Success Message */
+.successMessage {
+  font-size: 18px;
+  color: green;
+  font-weight: 700;
+  margin: 12px 0;
+  text-align: center;
+}
+
+/* Modal Actions */
+.modalActions {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  width: 100%;
+  margin-top: 20px;
+}
+
+.cancelBtn,
+.requestBtn {
+  min-width: 110px;
+  background-color: #7d2e2e;
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 13px 0;
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+
+.cancelBtn {
+  background: #fff;
+  color: #7d2e2e;
+  font-weight: 650;
+  font-size: 16px;
+  border: 2px solid #7d2e2e;
+  margin-right: 10px;
+}
+
+.cancelBtn:active, .cancelBtn:focus {
+  background: #faefef;
+  border-color: #b15656;
+  outline: none;
+}
+.cancelBtn:disabled {
+  background: #fbf6f6;
+  color: #c7aaaa;
+  border-color: #c7aaaa;
+  cursor: not-allowed;
+}
+
+.requestBtn:active, .requestBtn:focus {
+  background: #671818;
+  outline: none;
+}
+.requestBtn:disabled, .requestBtn.disabledBtn {
+  background: #dfcccc !important;
+  color: #965757;
+  cursor: not-allowed;
+}
+
+.requestBtn:not([disabled]):hover {
+  background: #6b2525;
+}
+.cancelBtn:not([disabled]):hover {
+  background: #f5efef;
+  border-color: #a12e2e;
+}
+
 /* RESPONSIVE DESIGN */
 @media (max-width: 1024px) {
   .opacHeader {
@@ -243,26 +410,26 @@
     padding: 20px 30px;
     gap: 10px;
   }
-
   .navLinks {
     gap: 20px;
   }
-
   .pageTitle {
     font-size: 36px;
   }
-
   .searchBar {
     width: 90%;
     flex-direction: column;
     gap: 12px;
     padding: 20px;
   }
-
   .searchInput,
   .searchDropdown,
   .searchBtn {
     width: 100%;
+  }
+  .modalContent {
+    flex-direction: column;
+    gap: 10px;
   }
 }
 
@@ -270,17 +437,31 @@
   .logo {
     font-size: 32px;
   }
-
   .subtitle {
     font-size: 14px;
   }
-
   .pageTitle {
     font-size: 28px;
     margin-bottom: 40px;
   }
-
   .searchHint {
     font-size: 16px;
+  }
+  .modal {
+    padding: 16px 6px 10px 6px;
+    max-width: 98vw;
+  }
+  .modalTitle {
+    font-size: 20px;
+  }
+  .modalContent {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .sectionTitle {
+    font-size: 15px;
+  }
+  .section {
+    padding: 10px 7px;
   }
 }
