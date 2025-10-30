@@ -184,6 +184,30 @@ export default function OPAC() {
     }, 2000);
   };
 
+  // Toggle manual input mode
+  const toggleManualInputMode = async () => {
+    if (!isManualInputMode) {
+      if (scanRequestId) {
+        try {
+          await axios.post(`${API_BASE_URL}/attendance/cancel-request`, { requestId: scanRequestId });
+          setScanRequestId(null);
+          setScanMessage('');
+        } catch (error) {
+          console.error('Failed to cancel scan request:', error);
+        }
+      }
+      setIsManualInputMode(true);
+      setManualStudentId('');
+      setManualUser(null);
+      setScannedUser(null);
+    } else {
+      setIsManualInputMode(false);
+      if (selectedBook) {
+        startNFCScan(selectedBook);
+      }
+    }
+  };
+
   // When manual submit student ID for lookup
   const handleManualSubmit = async () => {
     if (!manualStudentId.trim()) return;
@@ -192,7 +216,7 @@ export default function OPAC() {
       const resp = await axios.post(`${API_BASE_URL}/attendance/manual`, { student_id: manualStudentId.trim() });
       if (resp.data.success && resp.data.user) {
         setManualUser(resp.data.user);
-        setScannedUser(resp.data.user); // for consistency later
+        setScannedUser(resp.data.user);
         setScanMessage('Manual input accepted.');
       } else {
         setScanMessage('Student/Faculty ID not found.');
@@ -411,7 +435,7 @@ export default function OPAC() {
             <div style={{ marginBottom: '15px' }}>
               <button
                 className={styles.requestBtn}
-                onClick={() => setIsManualInputMode(!isManualInputMode)}
+                onClick={toggleManualInputMode}
                 type="button"
               >
                 {isManualInputMode ? 'Use NFC Scan' : 'Use Student/Faculty ID'}
