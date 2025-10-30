@@ -16,8 +16,10 @@ LibraX-Kiosk-Original
 │   │   │   └── attendance.js
 │   │   ├── auth
 │   │   │   └── verify-password.js
-│   │   └── bookrequests
-│   │       └── bookRequests.js
+│   │   ├── bookrequests
+│   │   │   └── bookRequests.js
+│   │   └── returnbooks
+│   │       └── returnBooks-api.js
 │   └── utils
 │       └── cors.ts
 ├── frontend
@@ -69,7 +71,7 @@ LibraX-Kiosk-Original
 │   │       │   ├── AttendanceNFC.module.css
 │   │       │   └── AttendanceNFC.tsx
 │   │       └── ReturnBooks
-│   │           ├── ReturnBooks.css
+│   │           ├── ReturnBooks.module.css
 │   │           └── ReturnBooks.tsx
 │   ├── tsconfig.app.json
 │   ├── tsconfig.json
