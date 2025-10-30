@@ -5,7 +5,7 @@ import Chatbot from './modals/Chatbot/Chatbot';
 import axios from 'axios';
 
 interface Book {
-  book_id: string; // Changed from number to string to match your DB schema
+  book_id: string;
   title: string;
   author?: string;
   publisher?: string;
@@ -22,7 +22,6 @@ const searchTypes = [
   { value: 'subject', label: 'Subject' },
 ];
 
-// ✅ Set your backend URL
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 export default function OPAC() {
@@ -31,6 +30,8 @@ export default function OPAC() {
   const [results, setResults] = useState<Book[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [showUnavailable, setShowUnavailable] = useState(true);
+  const [debounceTimer, setDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
 
   const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSearchType(e.target.value);
@@ -39,11 +40,8 @@ export default function OPAC() {
     setSearched(false);
   };
 
-  const handleSearch = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setQuery(value);
-
-    if (value.trim() === '') {
+  const performSearch = async (searchQuery: string) => {
+    if (searchQuery.trim() === '') {
       setResults([]);
       setSearched(false);
       return;
@@ -52,7 +50,7 @@ export default function OPAC() {
     setLoading(true);
     try {
       const { data } = await axios.get(
-        `${API_BASE_URL}/opac/search?type=${searchType}&query=${encodeURIComponent(value)}`
+        `${API_BASE_URL}/opac/search?type=${searchType}&query=${encodeURIComponent(searchQuery)}`
       );
 
       console.log('API Response:', data);
@@ -76,6 +74,28 @@ export default function OPAC() {
       setLoading(false);
     }
   };
+
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setQuery(value);
+
+    // Clear previous timer
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
+
+    // Set new timer for debounced search
+    const timer = setTimeout(() => {
+      performSearch(value);
+    }, 300); // 300ms debounce
+
+    setDebounceTimer(timer);
+  };
+
+  // Filter results based on availability preference
+  const filteredResults = results.filter(book =>
+    showUnavailable || (book.available && book.available > 0)
+  );
 
   return (
     <div className={styles.opacContainer}>
@@ -127,6 +147,18 @@ export default function OPAC() {
           </button>
         </div>
 
+        {/* Availability Filter Toggle */}
+        <div className={styles.filterOptions}>
+          <label className={styles.checkboxLabel}>
+            <input
+              type="checkbox"
+              checked={showUnavailable}
+              onChange={(e) => setShowUnavailable(e.target.checked)}
+            />
+            Show Unavailable Books
+          </label>
+        </div>
+
         {loading ? (
           <p className={styles.searchHint}>Loading...</p>
         ) : !searched && query === '' ? (
@@ -135,12 +167,12 @@ export default function OPAC() {
           </p>
         ) : (
           <div className={styles.resultsContainer}>
-            <p className={styles.resultCount}>Results: {results.length}</p>
+            <p className={styles.resultCount}>Results: {filteredResults.length}</p>
 
-            {results.length === 0 ? (
+            {filteredResults.length === 0 ? (
               <p className={styles.searchHint}>No books found.</p>
             ) : (
-              results.map((book) => (
+              filteredResults.map((book) => (
                 <div key={book.book_id} className={styles.bookCard}>
                   <div className={styles.bookDetails}>
                     <p className={styles.bookType}>Book</p>
