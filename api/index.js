@@ -5,7 +5,7 @@ const dotenv = require("dotenv");
 dotenv.config();
 
 const attendanceRouter = require("./routes/PatronAttendance/attendance"); 
-const opacSearchRouter = require("./routes/opacSearch");
+const opacSearchRouter = require("./routes/OPAC/opacSearch");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
