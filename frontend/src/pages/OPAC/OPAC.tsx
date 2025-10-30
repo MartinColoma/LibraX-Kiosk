@@ -5,11 +5,11 @@ import Chatbot from './modals/Chatbot/Chatbot';
 import axios from 'axios';
 
 interface Book {
-  book_id: number;
+  book_id: string; // Changed from number to string to match your DB schema
   title: string;
   author?: string;
   publisher?: string;
-  publication_year?: string;
+  publication_year?: number;
   genre?: string;
   available?: number;
   total?: number;
@@ -21,6 +21,9 @@ const searchTypes = [
   { value: 'author', label: 'Author' },
   { value: 'subject', label: 'Subject' },
 ];
+
+// ✅ Set your backend URL
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 export default function OPAC() {
   const [query, setQuery] = useState('');
@@ -49,12 +52,11 @@ export default function OPAC() {
     setLoading(true);
     try {
       const { data } = await axios.get(
-        `/opac/search?type=${searchType}&query=${encodeURIComponent(value)}`
+        `${API_BASE_URL}/opac/search?type=${searchType}&query=${encodeURIComponent(value)}`
       );
 
-      console.log('API Response:', data); // 🧠 Debug: see what backend returns
+      console.log('API Response:', data);
 
-      // ✅ Ensure we always set an array (handles both array or object responses)
       if (Array.isArray(data)) {
         setResults(data);
       } else if (data?.results && Array.isArray(data.results)) {
@@ -125,7 +127,6 @@ export default function OPAC() {
           </button>
         </div>
 
-        {/* === Search Result Section === */}
         {loading ? (
           <p className={styles.searchHint}>Loading...</p>
         ) : !searched && query === '' ? (
