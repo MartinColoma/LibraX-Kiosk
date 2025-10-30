@@ -11,22 +11,22 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 router.get("/search", async (req, res) => {
   try {
     const { type = "keyword", query = "" } = req.query;
-    if (!query.trim()) return res.json([]);
+    if (!query.trim()) return res.json([]); // Always return an array if empty
 
-    // Mapping dropdown types to Supabase fields/columns
+    // Map dropdown types to actual DB columns
     const columnMap = {
-      keyword: "title", // keyword can optionally mean 'title, author, subject'
+      keyword: "title", // For "keyword", you may want to hit multiple columns
       title: "title",
       author: "author",
-      subject: "category_id" // or 'genre', adapt as needed
+      subject: "category_id" // or 'genre'
     };
 
     const field = columnMap[type] || "title";
-    // For keyword, search multiple fields if you want (see notes below)
 
     let supabaseQuery = supabase.from("books").select("*");
 
     if (type === "keyword") {
+      // Search multiple fields for partial matches, even single letters
       supabaseQuery = supabaseQuery.or(
         `title.ilike.%${query}%,author.ilike.%${query}%,category_id.ilike.%${query}%`
       );
@@ -36,11 +36,16 @@ router.get("/search", async (req, res) => {
 
     const { data, error } = await supabaseQuery;
 
-    if (error) throw error;
-    res.json(data);
+    // Always send array, even if error or null
+    if (error || !Array.isArray(data)) {
+      console.error("OPAC search error:", error?.message || "No array response");
+      res.json([]);
+    } else {
+      res.json(data); // Always array
+    }
   } catch (err) {
     console.error("OPAC search error:", err.message);
-    res.status(500).json({ error: "Error searching books" });
+    res.json([]);
   }
 });
 
