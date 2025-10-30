@@ -154,30 +154,62 @@ export default function OPAC() {
             {results.length === 0 ? (
               <p className={styles.searchHint}>No books found.</p>
             ) : (
-              results.map((book) => (
-                <div key={book.book_id} className={styles.bookCard}>
-                  <div className={styles.bookDetails}>
-                    <p className={styles.bookType}>Book</p>
-                    <h3 className={styles.bookTitle}>{book.title}</h3>
-                    <p className={styles.bookMeta}>
-                      Author: {book.author || 'N/A'}
-                      <br />
-                      Publisher: {book.publisher || 'N/A'} •{' '}
-                      {book.publication_year || 'N/A'}
-                      <br />
-                      Genre: {book.genre || 'N/A'}
-                    </p>
-                  </div>
+              results.map((book) => {
+                // Convert to numbers to ensure proper comparison
+                const availableCopies = parseInt(book.available?.toString() || '0', 10);
+                const totalCopies = parseInt(book.total?.toString() || '0', 10);
+                const isAvailable = availableCopies > 0;
 
-                  <div className={styles.bookAction}>
-                    <button
-                      className={styles.requestBtn}
-                    >
-                      Request Item
-                    </button>
+                return (
+                  <div key={book.book_id} className={styles.bookCard}>
+                    <div className={styles.bookDetails}>
+                      <p className={styles.bookType}>Book</p>
+                      <h3 className={styles.bookTitle}>{book.title}</h3>
+                      <p className={styles.bookMeta}>
+                        Author: {book.author || 'N/A'}
+                        <br />
+                        Publisher: {book.publisher || 'N/A'} •{' '}
+                        {book.publication_year || 'N/A'}
+                        <br />
+                        Genre: {book.genre || 'N/A'}
+                      </p>
+                      <p
+                        className={
+                          isAvailable
+                            ? styles.available
+                            : styles.notAvailable
+                        }
+                      >
+                        {isAvailable ? (
+                          <>
+                            ✅ <strong>Available:</strong> {availableCopies} of{' '}
+                            {totalCopies} copies remaining
+                          </>
+                        ) : (
+                          <>
+                            ❌ <strong>Not Available:</strong>{' '}
+                            {availableCopies} of {totalCopies} copies
+                            remaining
+                          </>
+                        )}
+                      </p>
+                    </div>
+
+                    <div className={styles.bookAction}>
+                      <button
+                        className={`${styles.requestBtn} ${
+                          !isAvailable
+                            ? styles.disabledBtn
+                            : ''
+                        }`}
+                        disabled={!isAvailable}
+                      >
+                        Request Item
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         )}
