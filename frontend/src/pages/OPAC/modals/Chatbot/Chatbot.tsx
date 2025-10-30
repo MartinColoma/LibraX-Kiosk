@@ -9,7 +9,7 @@ const initialMessages = [
 const Chatbot: React.FC = () => {
   const [messages, setMessages] = useState(initialMessages);
   const [input, setInput] = useState('');
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
 
   const handleSend = () => {
     if (input.trim() === '') return;
