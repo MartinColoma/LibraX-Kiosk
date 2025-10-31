@@ -17,7 +17,15 @@ router.get("/user-borrowed", async (req, res) => {
     console.log("📚 GET /user-borrowed endpoint called");
     console.log("Query params:", req.query);
     
-    const { user_id, nfc_uid, student_id } = req.query;
+    let { user_id, nfc_uid, student_id } = req.query;
+    
+    // ✅ FIXED: Strip reader number if attached (e.g., "2022-201049:1" -> "2022-201049")
+    if (student_id && student_id.includes(":")) {
+      student_id = student_id.split(":")[0];
+    }
+    if (user_id && user_id.includes(":")) {
+      user_id = user_id.split(":")[0];
+    }
     
     if (!user_id && !nfc_uid && !student_id) {
       console.log("❌ No user identifier provided");

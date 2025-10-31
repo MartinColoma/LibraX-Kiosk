@@ -8,6 +8,7 @@ const attendanceRouter = require("./routes/PatronAttendance/attendance");
 const opacSearchRouter = require("./routes/OPAC/opacSearch");
 const bookRequestRouter = require("./routes/bookrequests/bookRequests");
 const authRouter = require("./routes/auth/verify-password");
+const bookReturnRouter = require("./routes/returnbooks/returnBooks-api"); // ✅ ADD THIS
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,20 +19,21 @@ app.use(express.json());
 // CORS setup
 const corsOptions = {
   origin: [
-    "http://localhost:5173",               // dev frontend
-    "https://librax-kiosk.onrender.com"    // production frontend
+    "http://localhost:5173",
+    "https://librax-kiosk.onrender.com"
   ],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
 };
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions)); // handle preflight requests
+app.options("*", cors(corsOptions));
 
 // Routes
 app.use("/attendance", attendanceRouter);
 app.use("/opac", opacSearchRouter);
 app.use("/books", bookRequestRouter);
 app.use("/auth", authRouter);
+app.use("/return-books", bookReturnRouter); // ✅ ADD THIS LINE
 
 // Health check
 app.get("/", (req, res) => {
