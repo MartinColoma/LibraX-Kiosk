@@ -110,29 +110,34 @@ const ReturnBooks: React.FC = () => {
   };
 
   const startPollingUserScan = (requestId: string) => {
-    if (pollingRef.current) clearInterval(pollingRef.current);
-    
-    pollingRef.current = setInterval(async () => {
-      try {
-        // ✅ FIXED: Use /attendance endpoint for user scan
-        const res = await fetch(`${API_BASE_URL}/attendance/scan-status?requestId=${requestId}`);
-        const data = await res.json();
-        
-        if (!res.ok || !data.success || !data.request) return;
-        
-        if (data.request.status === "completed" && data.request.response) {
-          const result = JSON.parse(data.request.response);
-          if (result?.user) {
-            await fetchBorrowedBooks(result.user.user_id);
-            setIsScanning(false);
-            if (pollingRef.current) clearInterval(pollingRef.current);
-          }
+  if (pollingRef.current) clearInterval(pollingRef.current);
+  
+  pollingRef.current = setInterval(async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/attendance/scan-status?requestId=${requestId}`);
+      const data = await res.json();
+      
+      if (!res.ok || !data.success || !data.request) return;
+      
+      if (data.request.status === "completed" && data.request.response) {
+        const result = JSON.parse(data.request.response);
+        if (result?.user) {
+          // FIXED: Clean up user_id before using it
+          const cleanUserId = result.user.user_id.includes(":") 
+            ? result.user.user_id.split(":")[0] 
+            : result.user.user_id;
+          
+          await fetchBorrowedBooks(cleanUserId);
+          setIsScanning(false);
+          if (pollingRef.current) clearInterval(pollingRef.current);
         }
-      } catch (err) {
-        console.error("Polling error:", err);
       }
-    }, 2000);
-  };
+    } catch (err) {
+      console.error("Polling error:", err);
+    }
+  }, 2000);
+};
+
 
   const cancelScanRequest = async () => {
     if (!scanRequestId) return;
@@ -174,18 +179,22 @@ const ReturnBooks: React.FC = () => {
   };
 
   const fetchBorrowedBooks = async (userId: string) => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/return-books/user-borrowed?user_id=${userId}`);
-      const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.message);
-      
-      setUserInfo(data.user);
-      setBorrowedBooks(data.borrowed_books);
-    } catch (err: any) {
-      console.error("Failed to fetch borrowed books:", err);
-      setScanError(err.message || "Failed to load borrowed books");
-    }
-  };
+  try {
+    // FIXED: Strip reader number if present (e.g., "S2025000055:1" -> "S2025000055")
+    const cleanUserId = userId.includes(":") ? userId.split(":")[0] : userId;
+    
+    const res = await fetch(`${API_BASE_URL}/return-books/user-borrowed?user_id=${cleanUserId}`);
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.message);
+    
+    setUserInfo(data.user);
+    setBorrowedBooks(data.borrowed_books);
+  } catch (err: any) {
+    console.error("Failed to fetch borrowed books:", err);
+    setScanError(err.message || "Failed to load borrowed books");
+  }
+};
+
 
   // ==================== BOOK SELECTION ====================
   const toggleBookSelection = (borrowId: string) => {
