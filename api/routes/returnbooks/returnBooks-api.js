@@ -457,4 +457,40 @@ router.post("/cancel-request", async (req, res) => {
   }
 });
 
+// ===========================================
+// GET /return-books/get-pending-request
+// ESP32 polls this to get pending book return request
+// ===========================================
+router.get("/get-pending-request", async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from("scan_requests")
+      .select("*")
+      .eq("scan_type", "book_return")
+      .eq("status", "pending")
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "No pending requests" 
+      });
+    }
+
+    res.json({ 
+      success: true,
+      request: data
+    });
+  } catch (err) {
+    console.error("Error:", err.message);
+    res.status(500).json({ 
+      success: false, 
+      message: "Server error" 
+    });
+  }
+});
+
+
 module.exports = router;
