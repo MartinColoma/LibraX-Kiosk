@@ -207,11 +207,17 @@ def get_library_response(prompt):
         else:
             return f"Sorry, '{book_name}' is unavailable in the library."
 
-    # --- Availability / copies ---
+    # --- Availability / copies --- ✅ FIXED
     if any(k in lower_prompt for k in inventory_keywords):
         if book_found and is_available_field(book.get("available_copies")):
-            count = int(book.get("available_copies"))
-            return f"Yes, '{book.get('title')}' is available. There {'is' if count==1 else 'are'} {count} {'copy' if count==1 else 'copies'} left."
+            try:
+                count = int(book.get("available_copies"))
+                if count > 0:
+                    return f"Yes, '{book.get('title')}' is available. There {'is' if count==1 else 'are'} {count} {'copy' if count==1 else 'copies'} left."
+                else:
+                    return f"Sorry, '{book.get('title')}' is currently unavailable in the library."
+            except ValueError:
+                return f"Sorry, '{book.get('title')}' has invalid copy data."
         else:
             return f"Sorry, '{book_name}' is unavailable in the library."
 
