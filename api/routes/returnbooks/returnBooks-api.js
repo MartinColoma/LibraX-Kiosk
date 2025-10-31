@@ -151,28 +151,11 @@ router.post("/request-scan", async (req, res) => {
       });
     }
 
-    console.log(`📝 Creating scan request for ${borrow_ids.length} books`);
+    console.log(`📝 Creating NEW scan request for ${borrow_ids.length} books`);
 
-    // Check for existing pending scan
-    const { data: existing, error: existingError } = await supabase
-      .from("scan_requests")
-      .select("*")
-      .eq("status", "pending")
-      .eq("scan_type", "book_return")
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .single();
+    // ✅ REMOVED: No longer reusing old requests
+    // Just create a fresh one every time
 
-    if (existing && !existingError) {
-      return res.json({
-        success: true,
-        message: "Pending book return scan already exists",
-        requestId: existing.id,
-        request: existing
-      });
-    }
-
-    // Create new scan request with borrow_ids in response
     const responseData = JSON.stringify({ 
       borrow_ids,
       scan_type: "book_return"
@@ -212,6 +195,7 @@ router.post("/request-scan", async (req, res) => {
     });
   }
 });
+
 
 // ===========================================
 // POST /return-books/scan-result
