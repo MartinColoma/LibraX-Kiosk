@@ -153,9 +153,6 @@ router.post("/request-scan", async (req, res) => {
 
     console.log(`📝 Creating NEW scan request for ${borrow_ids.length} books`);
 
-    // ✅ REMOVED: No longer reusing old requests
-    // Just create a fresh one every time
-
     const responseData = JSON.stringify({ 
       borrow_ids,
       scan_type: "book_return"
@@ -196,7 +193,6 @@ router.post("/request-scan", async (req, res) => {
   }
 });
 
-
 // ===========================================
 // POST /return-books/scan-result
 // Process scanned book NFC for return
@@ -205,8 +201,7 @@ router.post("/scan-result", async (req, res) => {
   try {
     const { requestId, nfc_uid } = req.body;
     
-    console.log("🔍 ============ SCAN RESULT DEBUG START ============");
-    console.log("📥 Request received:", { requestId, nfc_uid, type: typeof requestId });
+    console.log("🔍 Looking for scan request ID:", requestId);
     
     if (!requestId || !nfc_uid) {
       return res.status(400).json({ 
@@ -215,82 +210,87 @@ router.post("/scan-result", async (req, res) => {
       });
     }
 
-    // ✅ CONVERT TO NUMBER
     const numRequestId = parseInt(requestId, 10);
-    console.log("🔢 Converted requestId to number:", numRequestId);
 
-    // Get the scan request
+    // ✅ FIXED: Use maybeSingle() instead of single()
     const { data: scanRequest, error: scanError } = await supabase
       .from("scan_requests")
       .select("*")
-      .eq("id", numRequestId)  // ✅ Use converted number
+      .eq("id", numRequestId)
       .eq("scan_type", "book_return")
-      .single();
+      .limit(1)
+      .maybeSingle();
 
-    if (scanError || !scanRequest) {
-      console.error("❌ Scan request not found:", scanError);
+    if (scanError) {
+      console.error("❌ Database error:", scanError);
+      return res.status(404).json({ 
+        success: false, 
+        message: "Database error",
+        debug: scanError.message
+      });
+    }
+
+    if (!scanRequest) {
+      console.error("❌ Scan request ID not found:", numRequestId);
       return res.status(404).json({ 
         success: false, 
         message: "Scan request not found",
-        debug: { requestId, numRequestId, scanError: scanError?.message }
+        debug: { requestId: numRequestId }
       });
     }
+
+    console.log("✅ Found scan request:", scanRequest.id);
 
     const responseData = JSON.parse(scanRequest.response || '{}');
     const borrow_ids = responseData.borrow_ids || [];
 
-    console.log("✅ Scan request found");
-    console.log("📚 Borrow IDs to return:", borrow_ids);
+    if (borrow_ids.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "No books selected for return" 
+      });
+    }
+
+    console.log("📚 Books to return:", borrow_ids);
     console.log("🔎 Searching for NFC UID:", nfc_uid);
 
     // Find the book copy by NFC UID
     const { data: bookCopy, error: copyError } = await supabase
       .from("book_copies")
-      .select("copy_id, book_id, status, nfc_uid")
+      .select("copy_id, book_id, status")
       .eq("nfc_uid", nfc_uid)
-      .single();
-
-    console.log("🎯 Book copy search result:", { bookCopy, copyError });
+      .limit(1)
+      .maybeSingle();
 
     if (copyError || !bookCopy) {
-      console.error("❌ Book copy not found!");
-      
-      const { data: allCopies } = await supabase
-        .from("book_copies")
-        .select("copy_id, nfc_uid, book_id");
-      
-      console.log("📋 ALL book copies in DB:", allCopies);
-      
+      console.error("❌ Book copy not found for NFC UID:", nfc_uid);
       return res.status(404).json({ 
         success: false, 
-        message: "Book copy not found with this NFC UID",
-        debug: {
-          searched_for: nfc_uid,
-          total_copies_in_db: allCopies?.length || 0
-        }
+        message: "Book copy not found with this NFC UID" 
       });
     }
 
-    console.log("✅ Book copy found:", bookCopy);
+    console.log("✅ Found book copy:", bookCopy.copy_id);
 
     // Check if this copy is in the selected books to return
-    const { data: borrowRecord, error: borrowError } = await supabase
+    const { data: borrowRecords, error: borrowError } = await supabase
       .from("borrowed_books")
       .select("*")
       .eq("copy_id", bookCopy.copy_id)
       .in("borrow_id", borrow_ids)
-      .in("status", ["Borrowed", "Overdue"])
-      .single();
+      .in("status", ["Borrowed", "Overdue"]);
 
-    console.log("📖 Borrow record search result:", { borrowRecord, borrowError });
-
-    if (borrowError || !borrowRecord) {
+    if (borrowError || !borrowRecords || borrowRecords.length === 0) {
       console.error("❌ Borrow record not found");
       return res.status(404).json({ 
         success: false, 
         message: "This book is not in your selected return list or already returned" 
       });
     }
+
+    const borrowRecord = borrowRecords[0];
+
+    console.log("📖 Found borrow record:", borrowRecord.borrow_id);
 
     // Update the borrowed_books record
     const { error: updateError } = await supabase
@@ -339,9 +339,9 @@ router.post("/scan-result", async (req, res) => {
         status: newStatus,
         response: JSON.stringify(updatedResponse)
       })
-      .eq("id", numRequestId);  // ✅ Use converted number
+      .eq("id", numRequestId);
 
-    console.log("✅ ============ SCAN RESULT SUCCESS ============\n");
+    console.log("✅ Book return successful!");
 
     res.json({ 
       success: true, 
@@ -364,7 +364,6 @@ router.post("/scan-result", async (req, res) => {
   }
 });
 
-
 // ===========================================
 // GET /return-books/scan-status
 // Check the status of a return scan request
@@ -380,12 +379,15 @@ router.get("/scan-status", async (req, res) => {
       });
     }
 
+    const numRequestId = parseInt(requestId, 10);
+
     const { data, error } = await supabase
       .from("scan_requests")
       .select("*")
-      .eq("id", requestId)
+      .eq("id", numRequestId)
       .eq("scan_type", "book_return")
-      .single();
+      .limit(1)
+      .maybeSingle();
 
     if (error || !data) {
       return res.status(404).json({ 
@@ -426,10 +428,12 @@ router.post("/cancel-request", async (req, res) => {
       });
     }
 
+    const numRequestId = parseInt(requestId, 10);
+
     const { error } = await supabase
       .from("scan_requests")
       .delete()
-      .eq("id", requestId)
+      .eq("id", numRequestId)
       .eq("scan_type", "book_return");
 
     if (error) {
@@ -452,182 +456,5 @@ router.post("/cancel-request", async (req, res) => {
     });
   }
 });
-
-// ===========================================
-// POST /return-books/scan-result
-// Process scanned book NFC for return
-// ===========================================
-router.post("/scan-result", async (req, res) => {
-  try {
-    const { requestId, nfc_uid } = req.body;
-    
-    console.log("🔍 ============ SCAN RESULT DEBUG START ============");
-    console.log("📥 Request received:", { requestId, nfc_uid });
-    
-    if (!requestId || !nfc_uid) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "Missing requestId or nfc_uid" 
-      });
-    }
-
-    // Get the scan request
-    const { data: scanRequest, error: scanError } = await supabase
-      .from("scan_requests")
-      .select("*")
-      .eq("id", requestId)
-      .eq("scan_type", "book_return")
-      .single();
-
-    if (scanError || !scanRequest) {
-      console.error("❌ Scan request not found:", scanError);
-      return res.status(404).json({ 
-        success: false, 
-        message: "Scan request not found" 
-      });
-    }
-
-    const responseData = JSON.parse(scanRequest.response || '{}');
-    const borrow_ids = responseData.borrow_ids || [];
-
-    console.log("✅ Scan request found");
-    console.log("📚 Borrow IDs to return:", borrow_ids);
-    console.log("🔎 Searching for NFC UID:", nfc_uid);
-
-    // ✅ DEBUG: Get ALL book copies to see what exists
-    const { data: allCopies } = await supabase
-      .from("book_copies")
-      .select("copy_id, book_id, nfc_uid, status");
-
-    console.log("📋 ALL book copies in database:");
-    allCopies.forEach((copy, idx) => {
-      console.log(`  [${idx}] copy_id=${copy.copy_id}, nfc_uid=${copy.nfc_uid}, book_id=${copy.book_id}`);
-    });
-
-    // ✅ DEBUG: Search for exact NFC UID match
-    console.log(`\n🔍 Searching for nfc_uid = "${nfc_uid}"`);
-    
-    const { data: bookCopy, error: copyError } = await supabase
-      .from("book_copies")
-      .select("copy_id, book_id, status, nfc_uid")
-      .eq("nfc_uid", nfc_uid)
-      .single();
-
-    console.log("🎯 Search result:", { bookCopy, copyError });
-
-    if (copyError || !bookCopy) {
-      console.error("❌ Book copy not found!");
-      
-      // Try partial match or similar
-      const { data: similarCopies } = await supabase
-        .from("book_copies")
-        .select("copy_id, nfc_uid")
-        .like("nfc_uid", `%${nfc_uid.substring(0, 5)}%`);
-      
-      console.log("🔍 Similar UIDs found:", similarCopies);
-      
-      return res.status(404).json({ 
-        success: false, 
-        message: "Book copy not found with this NFC UID",
-        debug: {
-          searched_for: nfc_uid,
-          total_copies_in_db: allCopies.length,
-          similar_found: similarCopies.length
-        }
-      });
-    }
-
-    console.log("✅ Book copy found:", bookCopy);
-
-    // Check if this copy is in the selected books to return
-    const { data: borrowRecord, error: borrowError } = await supabase
-      .from("borrowed_books")
-      .select("*")
-      .eq("copy_id", bookCopy.copy_id)
-      .in("borrow_id", borrow_ids)
-      .in("status", ["Borrowed", "Overdue"])
-      .single();
-
-    console.log("📖 Borrow record result:", { borrowRecord, borrowError });
-
-    if (borrowError || !borrowRecord) {
-      console.error("❌ Borrow record not found");
-      return res.status(404).json({ 
-        success: false, 
-        message: "This book is not in your selected return list or already returned" 
-      });
-    }
-
-    // Update the borrowed_books record
-    const { error: updateError } = await supabase
-      .from("borrowed_books")
-      .update({
-        status: "Returned",
-        return_date: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .eq("borrow_id", borrowRecord.borrow_id);
-
-    if (updateError) {
-      console.error("❌ Failed to update borrow record:", updateError);
-      return res.status(500).json({ 
-        success: false, 
-        message: "Failed to process book return" 
-      });
-    }
-
-    // Update book_copies status to Available
-    await supabase
-      .from("book_copies")
-      .update({ status: "Available" })
-      .eq("copy_id", bookCopy.copy_id);
-
-    // Get updated list of remaining books to return
-    const remainingBorrowIds = borrow_ids.filter(id => id !== borrowRecord.borrow_id);
-    
-    // Update scan request
-    const updatedResponse = {
-      ...responseData,
-      returned_books: [...(responseData.returned_books || []), {
-        borrow_id: borrowRecord.borrow_id,
-        copy_id: bookCopy.copy_id,
-        nfc_uid: nfc_uid,
-        returned_at: new Date().toISOString()
-      }],
-      remaining_borrow_ids: remainingBorrowIds
-    };
-
-    const newStatus = remainingBorrowIds.length === 0 ? "completed" : "pending";
-
-    await supabase
-      .from("scan_requests")
-      .update({
-        status: newStatus,
-        response: JSON.stringify(updatedResponse)
-      })
-      .eq("id", requestId);
-
-    console.log("✅ ============ SCAN RESULT SUCCESS ============\n");
-
-    res.json({ 
-      success: true, 
-      message: "Book returned successfully",
-      returned_book: {
-        borrow_id: borrowRecord.borrow_id,
-        copy_id: bookCopy.copy_id,
-        book_id: bookCopy.book_id
-      },
-      remaining_books: remainingBorrowIds.length,
-      all_books_returned: remainingBorrowIds.length === 0
-    });
-  } catch (err) {
-    console.error("❌ Scan-result error:", err.message);
-    res.status(500).json({ 
-      success: false, 
-      message: "Server error" 
-    });
-  }
-});
-
 
 module.exports = router;
