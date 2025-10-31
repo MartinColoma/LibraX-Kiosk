@@ -437,5 +437,281 @@ router.post("/cancel-request", async (req, res) => {
   }
 });
 
-// ✅ CRITICAL: EXPORT THE ROUTER!
+// Add this AFTER the existing POST /books/request endpoint
+
+// ==================== GET USER BORROWED BOOKS ====================
+router.get("/user-borrowed", async (req, res) => {
+  try {
+    const { user_id, student_id } = req.query;
+    
+    if (!user_id && !student_id) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "user_id or student_id required" 
+      });
+    }
+
+    let query = supabase
+      .from("borrowing_records")
+      .select(`
+        borrow_id,
+        copy_id,
+        book_id,
+        borrow_date,
+        due_date,
+        status,
+        fine_amount,
+        is_overdue,
+        days_overdue,
+        books(title, subtitle, isbn, publisher, publication_year),
+        book_copies(nfc_uid, book_condition, location),
+        users(user_id, name, student_faculty_id)
+      `)
+      .eq("status", "Borrowed");
+
+    if (user_id) {
+      query = query.eq("user_id", user_id);
+    } else if (student_id) {
+      // First find user by student_id, then get borrowing records
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select("user_id, name, student_faculty_id")
+        .eq("student_faculty_id", student_id)
+        .single();
+
+      if (userError || !userData) {
+        return res.status(404).json({ 
+          success: false, 
+          message: "User not found" 
+        });
+      }
+
+      query = query.eq("user_id", userData.user_id);
+    }
+
+    const { data: borrowedBooks, error: booksError } = await query;
+
+    if (booksError) {
+      return res.status(500).json({ 
+        success: false, 
+        message: "Failed to fetch borrowed books",
+        error: booksError.message 
+      });
+    }
+
+    // Extract unique user info
+    const user = borrowedBooks[0]?.users || null;
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "User not found" 
+      });
+    }
+
+    return res.status(200).json({ 
+      success: true, 
+      user: {
+        user_id: user.user_id,
+        name: user.name,
+        student_faculty_id: user.student_faculty_id
+      },
+      borrowed_books: borrowedBooks 
+    });
+  } catch (error) {
+    console.error("Error fetching borrowed books:", error);
+    return res.status(500).json({ 
+      success: false, 
+      message: "Internal server error" 
+    });
+  }
+});
+
+// In-memory storage for scan requests (consider using Redis in production)
+const scanRequests = {};
+let requestIdCounter = 1;
+
+// ==================== REQUEST SCAN SESSION ====================
+router.post("/request-scan", async (req, res) => {
+  try {
+    const { sessionId, borrow_ids } = req.body;
+
+    if (!sessionId || !borrow_ids || borrow_ids.length === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "sessionId and borrow_ids required" 
+      });
+    }
+
+    const requestId = requestIdCounter++;
+    scanRequests[requestId] = {
+      sessionId,
+      borrow_ids,
+      status: "pending",
+      scanned_books: [],
+      response: null,
+      createdAt: new Date()
+    };
+
+    return res.status(200).json({ 
+      success: true, 
+      requestId 
+    });
+  } catch (error) {
+    console.error("Error requesting scan:", error);
+    return res.status(500).json({ 
+      success: false, 
+      message: "Failed to create scan request" 
+    });
+  }
+});
+
+// ==================== SCAN STATUS ====================
+router.get("/scan-status", async (req, res) => {
+  try {
+    const { requestId } = req.query;
+
+    if (!requestId || !scanRequests[requestId]) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Request not found" 
+      });
+    }
+
+    const request = scanRequests[requestId];
+
+    // Check if all books have been scanned
+    const remainingBooks = request.borrow_ids.length - request.scanned_books.length;
+
+    return res.status(200).json({ 
+      success: true, 
+      request,
+      returned_books: request.scanned_books,
+      remaining_books: remainingBooks
+    });
+  } catch (error) {
+    console.error("Error getting scan status:", error);
+    return res.status(500).json({ 
+      success: false, 
+      message: "Failed to get scan status" 
+    });
+  }
+});
+
+// ==================== CANCEL REQUEST ====================
+router.post("/cancel-request", async (req, res) => {
+  try {
+    const { requestId } = req.body;
+
+    if (!requestId || !scanRequests[requestId]) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Request not found" 
+      });
+    }
+
+    delete scanRequests[requestId];
+
+    return res.status(200).json({ 
+      success: true, 
+      message: "Request cancelled" 
+    });
+  } catch (error) {
+    console.error("Error cancelling request:", error);
+    return res.status(500).json({ 
+      success: false, 
+      message: "Failed to cancel request" 
+    });
+  }
+});
+
+// ==================== PROCESS BOOK RETURN (from ESP32) ====================
+router.post("/process-return", async (req, res) => {
+  try {
+    const { requestId, nfc_uid } = req.body;
+
+    if (!requestId || !nfc_uid) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "requestId and nfc_uid required" 
+      });
+    }
+
+    if (!scanRequests[requestId]) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Request not found" 
+      });
+    }
+
+    const request = scanRequests[requestId];
+
+    // Find the book copy by NFC UID
+    const { data: bookCopy, error: copyError } = await supabase
+      .from("book_copies")
+      .select("copy_id, book_id")
+      .eq("nfc_uid", nfc_uid)
+      .single();
+
+    if (copyError || !bookCopy) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Book not found" 
+      });
+    }
+
+    // Find the corresponding borrow record
+    const { data: borrowRecord, error: borrowError } = await supabase
+      .from("borrowing_records")
+      .select("borrow_id, user_id, copy_id")
+      .eq("copy_id", bookCopy.copy_id)
+      .in("borrow_id", request.borrow_ids)
+      .eq("status", "Borrowed")
+      .single();
+
+    if (borrowError || !borrowRecord) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Borrow record not found" 
+      });
+    }
+
+    // Update borrow status to "Returned"
+    const { error: updateError } = await supabase
+      .from("borrowing_records")
+      .update({ 
+        status: "Returned",
+        actual_return_date: new Date().toISOString()
+      })
+      .eq("borrow_id", borrowRecord.borrow_id);
+
+    if (updateError) {
+      return res.status(500).json({ 
+        success: false, 
+        message: "Failed to update borrow status" 
+      });
+    }
+
+    // Add to scanned books
+    if (!request.scanned_books.includes(borrowRecord.borrow_id)) {
+      request.scanned_books.push(borrowRecord.borrow_id);
+    }
+
+    const remainingBooks = request.borrow_ids.length - request.scanned_books.length;
+
+    return res.status(200).json({ 
+      success: true, 
+      message: "Book returned successfully",
+      remaining_books: remainingBooks,
+      borrow_id: borrowRecord.borrow_id
+    });
+  } catch (error) {
+    console.error("Error processing return:", error);
+    return res.status(500).json({ 
+      success: false, 
+      message: "Failed to process return" 
+    });
+  }
+});
+
+
 module.exports = router;
