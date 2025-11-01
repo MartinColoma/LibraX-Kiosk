@@ -35,7 +35,7 @@ const searchTypes = [
   { value: 'subject', label: 'Subject' },
 ];
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://librax-kiosk-api.onrender.com';
+const API_BASE_URL = import.meta.env.REACT_APP_API_BASE || import.meta.env.VITE_API_URL;
 
 export default function OPAC() {
   const [query, setQuery] = useState('');
