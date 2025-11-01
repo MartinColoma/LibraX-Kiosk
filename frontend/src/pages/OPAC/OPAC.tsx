@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Search } from 'lucide-react';
 import styles from './OPAC.module.css';
 import Chatbot from './modals/Chatbot/Chatbot';
@@ -62,6 +62,9 @@ export default function OPAC() {
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  // Ref to store polling interval id
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const handleTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setSearchType(e.target.value);
@@ -155,11 +158,16 @@ export default function OPAC() {
     let pollCount = 0;
     const maxPolls = 30; // 60 seconds
 
-    const interval = setInterval(async () => {
+    // Clear existing polling before starting new
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+    }
+
+    pollingIntervalRef.current = setInterval(async () => {
       pollCount++;
 
       if (pollCount > maxPolls) {
-        clearInterval(interval);
+        if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
         setScanMessage('Scan timeout. Please try again.');
         return;
       }
@@ -170,7 +178,7 @@ export default function OPAC() {
         );
 
         if (response.data.success && response.data.request.status === 'completed') {
-          clearInterval(interval);
+          if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
 
           const responseData = JSON.parse(response.data.request.response || '{}');
           if (responseData.user) {
@@ -186,6 +194,12 @@ export default function OPAC() {
 
   // Toggle manual input mode
   const toggleManualInputMode = async () => {
+    // Clear polling interval when toggling mode
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+
     if (!isManualInputMode) {
       if (scanRequestId) {
         try {
@@ -281,6 +295,12 @@ export default function OPAC() {
   };
 
   const closeScanModal = async () => {
+    // Clear polling interval when closing modal
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+
     if (scanRequestId) {
       try {
         await axios.post(`${API_BASE_URL}/attendance/cancel-request`, {

@@ -14,7 +14,7 @@
   align-items: center;
   background: #7d2e2e;
   color: white;
-  padding: 20px 60px;
+  padding: 1.25rem 3.75rem;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
   z-index: 100;
 }
@@ -26,28 +26,29 @@
 }
 
 .logo {
-  font-size: 40px;
+  font-size: 2.5rem;
   font-weight: 700;
-  letter-spacing: -1px;
+  letter-spacing: -0.5px;
   margin: 0;
 }
 
 .subtitle {
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 400;
   color: #f5d5d5;
-  margin-top: 4px;
+  margin-top: 0.25rem;
 }
 
 .navLinks {
   display: flex;
-  gap: 40px;
+  gap: 2.5rem;
+  align-items: center;
 }
 
 .navLinks a {
   color: white;
   font-weight: 600;
-  font-size: 18px;
+  font-size: 1.125rem;
   text-decoration: none;
   transition: opacity 0.3s ease;
 }
@@ -63,41 +64,42 @@
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  padding: 80px 20px;
-  text-align: center;
+  padding: 5rem 1.25rem;
 }
 
 .pageTitle {
-  font-size: 48px;
+  font-size: 3rem;
   font-weight: 700;
   color: #7d2e2e;
-  margin-bottom: 60px;
+  margin-bottom: 3.75rem;
   letter-spacing: -0.5px;
+  text-align: center;
 }
 
 /* SEARCH BAR */
 .searchBar {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 1rem;
   background: white;
-  padding: 16px 20px;
-  border-radius: 16px;
+  padding: 1rem 1.25rem;
+  border-radius: 1rem;
   box-shadow: 0 6px 25px rgba(0, 0, 0, 0.1);
-  width: 80%;
-  max-width: 900px;
+  width: 90%;
+  max-width: 56.25rem;
 }
 
 .searchDropdown {
-  padding: 14px 18px;
-  border-radius: 12px;
+  padding: 0.875rem 1.125rem;
+  border-radius: 0.75rem;
   border: 1px solid #ccc;
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 600;
   color: #333;
   background-color: #fafafa;
   cursor: pointer;
   transition: border 0.2s ease;
+  min-width: 9.375rem;
 }
 
 .searchDropdown:focus {
@@ -107,10 +109,10 @@
 
 .searchInput {
   flex: 1;
-  padding: 14px 20px;
+  padding: 0.875rem 1.25rem;
   border: 1px solid #ccc;
-  border-radius: 12px;
-  font-size: 18px;
+  border-radius: 0.75rem;
+  font-size: 1.125rem;
   outline: none;
   transition: border 0.2s ease;
 }
@@ -123,13 +125,16 @@
   background: #7d2e2e;
   border: none;
   color: white;
-  border-radius: 12px;
-  padding: 12px 18px;
+  border-radius: 0.75rem;
+  padding: 0.875rem 1.5rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.3s ease;
+  font-size: 1rem;
+  font-weight: 600;
+  min-width: 5rem;
 }
 
 .searchBtn:hover {
@@ -138,23 +143,24 @@
 }
 
 .searchHint {
-  margin-top: 40px;
-  font-size: 18px;
+  margin-top: 2.5rem;
+  font-size: 1.125rem;
   color: #666;
   font-style: italic;
+  text-align: center;
 }
+
 /* RESULTS SECTION */
 .resultsContainer {
-  margin-top: 40px;
-  width: 80%;
-  max-width: 900px;
-  text-align: left;
+  margin-top: 2.5rem;
+  width: 90%;
+  max-width: 56.25rem;
 }
 
 .resultCount {
-  font-size: 16px;
+  font-size: 1rem;
   color: #3a1e1e;
-  margin-bottom: 20px;
+  margin-bottom: 1.25rem;
   font-weight: 600;
 }
 
@@ -162,11 +168,11 @@
 .bookCard {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   border: 1px solid #4a2b2b;
-  border-radius: 12px;
-  padding: 24px;
-  margin-bottom: 16px;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
   background-color: #fffaf5;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
 }
@@ -176,34 +182,37 @@
 }
 
 .bookType {
-  font-size: 14px;
+  font-size: 0.875rem;
   color: #7d2e2e;
   font-weight: 600;
-  margin-bottom: 4px;
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .bookTitle {
-  font-size: 22px;
+  font-size: 1.375rem;
   font-weight: 700;
   color: #4a1e1e;
-  margin-bottom: 6px;
+  margin-bottom: 0.5rem;
+  line-height: 1.3;
 }
 
 .bookMeta {
-  font-size: 16px;
+  font-size: 1rem;
   color: #3a1e1e;
-  margin-bottom: 8px;
-  line-height: 1.4;
+  margin-bottom: 0.5rem;
+  line-height: 1.5;
 }
 
 .available {
-  font-size: 16px;
-  color: green;
+  font-size: 1rem;
+  color: #2d7a2d;
   font-weight: 600;
 }
 
 .notAvailable {
-  font-size: 16px;
+  font-size: 1rem;
   color: #a12e2e;
   font-weight: 600;
 }
@@ -213,17 +222,20 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-left: 1.5rem;
 }
 
 .requestBtn {
   background-color: #7d2e2e;
   color: white;
   border: none;
-  padding: 10px 18px;
-  border-radius: 8px;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
   font-weight: 600;
+  font-size: 1rem;
   cursor: pointer;
   transition: all 0.3s ease;
+  white-space: nowrap;
 }
 
 .requestBtn:hover {
@@ -242,7 +254,7 @@
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(45, 24, 24, 0.18);
+  background: rgba(45, 24, 24, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -251,11 +263,11 @@
 
 .modal {
   background: #fffaf6;
-  border-radius: 18px;
+  border-radius: 1.125rem;
   box-shadow: 0 10px 24px rgba(125, 46, 46, 0.15);
-  max-width: 490px;
-  width: 98vw;
-  padding: 36px 34px 24px 34px;
+  max-width: 30.625rem;
+  width: 90%;
+  padding: 2.25rem 2.125rem 1.5rem 2.125rem;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -263,10 +275,10 @@
 }
 
 .modalTitle {
-  font-size: 26px;
+  font-size: 1.625rem;
   font-weight: 700;
   color: #7d2e2e;
-  margin-bottom: 20px;
+  margin-bottom: 1.25rem;
   text-align: center;
 }
 
@@ -276,89 +288,118 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: #fff5f0;
-  border-radius: 14px;
-  box-shadow: 0 8px 24px rgba(125,46,46,0.10);
-  padding: 44px 18px 34px 18px;
-  margin-bottom: 20px;
+  background: linear-gradient(135deg, #fff5f0 0%, #ffe8e0 100%);
+  border-radius: 1rem;
+  box-shadow: 0 8px 24px rgba(125,46,46,0.15);
+  padding: 3rem 1.5rem 2.5rem 1.5rem;
+  margin-bottom: 1.5rem;
+  width: 100%;
+  border: 2px solid #f5d5d5;
 }
 
 .nfcIcon {
-  font-size: 60px;
+  font-size: 4.5rem;
   color: #7d2e2e;
-  margin-bottom: 24px;
+  margin-bottom: 1.5rem;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
 }
 
 .scanStatus {
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 1.125rem;
+  font-weight: 700;
   color: #7d2e2e;
-  margin-bottom: 8px;
+  margin-bottom: 0.625rem;
+  text-align: center;
 }
 
 .scanHint {
-  font-size: 15px;
+  font-size: 1rem;
   color: #955353;
+  text-align: center;
+  line-height: 1.5;
 }
 
 /* Request Details Phase */
 .modalContent {
   display: flex;
-  gap: 20px;
+  gap: 1.25rem;
   width: 100%;
-  margin-bottom: 18px;
+  margin-bottom: 1.125rem;
 }
 
 .section {
   flex: 1;
   background: #f7f5f2;
-  border-radius: 10px;
-  padding: 18px 15px;
+  border-radius: 0.625rem;
+  padding: 1.125rem 0.9375rem;
   box-shadow: 0 1px 4px rgba(125,46,46,0.06);
 }
 
 .sectionTitle {
   color: #7d2e2e;
-  font-size: 17px;
+  font-size: 1.0625rem;
   font-weight: 700;
-  margin-bottom: 9px;
+  margin-bottom: 0.75rem;
+  text-align: center;
 }
 
 /* Details Lists */
 .section p {
-  margin: 7px 0;
-  font-size: 15px;
+  margin: 0.5rem 0;
+  font-size: 0.9375rem;
   color: #2b2b2b;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.section p strong {
+  display: block;
+  color: #7d2e2e;
+  font-size: 0.8125rem;
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 /* Success Message */
 .successMessage {
-  font-size: 18px;
-  color: green;
+  font-size: 1.125rem;
+  color: #2d7a2d;
   font-weight: 700;
-  margin: 12px 0;
+  margin: 0.75rem 0;
   text-align: center;
 }
 
 /* Modal Actions */
 .modalActions {
   display: flex;
-  gap: 14px;
+  gap: 1rem;
   justify-content: center;
   width: 100%;
-  margin-top: 20px;
+  margin-top: 1.25rem;
 }
 
 .cancelBtn,
-.requestBtn {
-  min-width: 110px;
+.confirmBtn {
+  min-width: 7.5rem;
   background-color: #7d2e2e;
   color: #fff;
   border: none;
-  border-radius: 9px;
-  font-size: 16px;
+  border-radius: 0.5625rem;
+  font-size: 1rem;
   font-weight: 600;
-  padding: 13px 0;
+  padding: 0.8125rem 1.5rem;
   cursor: pointer;
   transition: background 0.2s, box-shadow 0.2s;
 }
@@ -366,10 +407,7 @@
 .cancelBtn {
   background: #fff;
   color: #7d2e2e;
-  font-weight: 650;
-  font-size: 16px;
   border: 2px solid #7d2e2e;
-  margin-right: 10px;
 }
 
 .cancelBtn:active, .cancelBtn:focus {
@@ -377,6 +415,7 @@
   border-color: #b15656;
   outline: none;
 }
+
 .cancelBtn:disabled {
   background: #fbf6f6;
   color: #c7aaaa;
@@ -384,19 +423,21 @@
   cursor: not-allowed;
 }
 
-.requestBtn:active, .requestBtn:focus {
+.confirmBtn:active, .confirmBtn:focus {
   background: #671818;
   outline: none;
 }
-.requestBtn:disabled, .requestBtn.disabledBtn {
+
+.confirmBtn:disabled, .requestBtn.disabledBtn {
   background: #dfcccc !important;
   color: #965757;
   cursor: not-allowed;
 }
 
-.requestBtn:not([disabled]):hover {
+.confirmBtn:not([disabled]):hover {
   background: #6b2525;
 }
+
 .cancelBtn:not([disabled]):hover {
   background: #f5efef;
   border-color: #a12e2e;
@@ -407,61 +448,103 @@
   .opacHeader {
     flex-direction: column;
     align-items: flex-start;
-    padding: 20px 30px;
-    gap: 10px;
+    padding: 1.25rem 1.875rem;
+    gap: 0.625rem;
   }
+  
   .navLinks {
-    gap: 20px;
+    gap: 1.25rem;
   }
+  
   .pageTitle {
-    font-size: 36px;
+    font-size: 2.25rem;
   }
+  
   .searchBar {
-    width: 90%;
+    width: 95%;
     flex-direction: column;
-    gap: 12px;
-    padding: 20px;
+    gap: 0.75rem;
+    padding: 1.25rem;
   }
+  
   .searchInput,
   .searchDropdown,
   .searchBtn {
     width: 100%;
   }
+  
   .modalContent {
     flex-direction: column;
-    gap: 10px;
+    gap: 0.75rem;
+  }
+  
+  .bookCard {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .bookAction {
+    width: 100%;
+    margin-left: 0;
+  }
+  
+  .requestBtn {
+    width: 100%;
   }
 }
 
 @media (max-width: 640px) {
   .logo {
-    font-size: 32px;
+    font-size: 2rem;
   }
+  
   .subtitle {
-    font-size: 14px;
+    font-size: 0.875rem;
   }
+  
   .pageTitle {
-    font-size: 28px;
-    margin-bottom: 40px;
+    font-size: 1.75rem;
+    margin-bottom: 2.5rem;
   }
+  
   .searchHint {
-    font-size: 16px;
+    font-size: 1rem;
   }
+  
   .modal {
-    padding: 16px 6px 10px 6px;
-    max-width: 98vw;
+    padding: 1.5rem 1.25rem;
+    max-width: 95%;
   }
+  
   .modalTitle {
-    font-size: 20px;
+    font-size: 1.375rem;
   }
+  
   .modalContent {
-    flex-direction: column;
-    gap: 10px;
+    gap: 0.75rem;
   }
+  
   .sectionTitle {
-    font-size: 15px;
+    font-size: 0.9375rem;
   }
+  
   .section {
-    padding: 10px 7px;
+    padding: 0.875rem 0.75rem;
+  }
+  
+  .section p {
+    font-size: 0.875rem;
+  }
+  
+  .modalActions {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .cancelBtn,
+  .confirmBtn {
+    width: 100%;
+    min-width: unset;
   }
 }
