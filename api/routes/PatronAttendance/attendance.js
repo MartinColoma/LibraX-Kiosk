@@ -128,10 +128,10 @@
 
       // Find user by student_faculty_id
       const { data: user, error: userError } = await supabase
-        .from("users")
-        .select("user_id, first_name, last_name, nfc_uid, role, student_faculty_id")
-        .eq("student_faculty_id", student_id)
-        .single();
+      .from("users")
+      .select("user_id, first_name, last_name, email, phone_number, address, date_registered, nfc_uid, role, student_faculty_id")
+      .eq("student_faculty_id", student_id)
+      .single();
 
       if (userError || !user)
         return res.status(404).json({ success: false, message: "Student/Faculty ID not found" });

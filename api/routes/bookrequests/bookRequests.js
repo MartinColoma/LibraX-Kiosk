@@ -7,18 +7,16 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // POST /books/request
-// POST /books/request
 router.post("/request", async (req, res) => {
   const { nfc_uid, book_id } = req.body;
   if (!nfc_uid || !book_id) {
     return res.status(400).json({ success: false, message: "Missing nfc_uid or book_id" });
   }
 
-  // Get user with full fields needed
+  // Get user
   const { data: user, error: userError } = await supabase
     .from("users")
-    // Added these fields: email, phone_number, address, date_registered for completeness
-    .select("user_id, first_name, last_name, email, phone_number, student_faculty_id, address, date_registered, nfc_uid")
+    .select("user_id")
     .eq("nfc_uid", nfc_uid)
     .single();
 
@@ -72,6 +70,5 @@ router.post("/request", async (req, res) => {
 
   return res.status(201).json({ success: true, message: "Book request created and pending approval" });
 });
-
 
 module.exports = router;
