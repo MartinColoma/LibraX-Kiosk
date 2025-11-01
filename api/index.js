@@ -21,7 +21,6 @@ const corsOptions = {
   origin: [
     "http://localhost:5173",
     "https://librax-kiosk.onrender.com",
-    "https://librax-kiosk-aiot.vercel.app"
   ],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
