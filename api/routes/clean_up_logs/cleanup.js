@@ -2,13 +2,16 @@ const express = require("express");
 const { createClient } = require("@supabase/supabase-js");
 
 
+
 const router = express.Router();
+
 
 
 // Supabase setup
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
+
 
 
 // ===========================================
@@ -19,10 +22,12 @@ router.get("/device-logs", async (req, res) => {
     console.log("🕑 Starting cleanup of device logs...");
 
 
+
     // Calculate timestamps
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
     const tenMinsAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+
 
 
     // Delete checking logs older than 10 minutes (both book return and attendance)
@@ -33,11 +38,13 @@ router.get("/device-logs", async (req, res) => {
       .ilike("log_message", "%🔄 Checking for%");
 
 
+
     if (checkingError) {
       console.error("❌ Checking logs cleanup error:", checkingError.message);
     } else {
       console.log("✅ Checking logs cleaned (older than 10 minutes)");
     }
+
 
 
     // Delete non-error logs older than 3 days
@@ -48,11 +55,13 @@ router.get("/device-logs", async (req, res) => {
       .not("log_message", "ilike", "%❌%");
 
 
+
     if (nonErrorError) {
       console.error("❌ Non-error logs cleanup error:", nonErrorError.message);
     } else {
       console.log("✅ Non-error logs cleaned (older than 3 days)");
     }
+
 
 
     // Delete error logs older than 7 days
@@ -63,11 +72,13 @@ router.get("/device-logs", async (req, res) => {
       .ilike("log_message", "%❌%");
 
 
+
     if (errorLogsError) {
       console.error("❌ Error logs cleanup error:", errorLogsError.message);
     } else {
       console.log("✅ Error logs cleaned (older than 7 days)");
     }
+
 
 
     if (checkingError || nonErrorError || errorLogsError) {
@@ -81,6 +92,7 @@ router.get("/device-logs", async (req, res) => {
         } 
       });
     }
+
 
 
     console.log("✅ Device logs cleanup completed successfully");
@@ -100,6 +112,7 @@ router.get("/device-logs", async (req, res) => {
 });
 
 
+
 // ===========================================
 // GET /cleanup/scan-requests
 // ===========================================
@@ -108,8 +121,10 @@ router.get("/scan-requests", async (req, res) => {
     console.log("🕑 Starting cleanup of old scan requests...");
 
 
+
     // Calculate timestamp for 24 hours ago
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
 
 
     // Delete scan requests older than 24 hours
@@ -119,10 +134,12 @@ router.get("/scan-requests", async (req, res) => {
       .lt("created_at", oneDayAgo);
 
 
+
     if (error) {
       console.error("❌ Scan requests cleanup error:", error.message);
       return res.status(500).json({ success: false, message: "Cleanup failed", error: error.message });
     }
+
 
 
     console.log("✅ Scan requests cleanup completed successfully - Deleted requests older than 24 hours");
@@ -134,6 +151,7 @@ router.get("/scan-requests", async (req, res) => {
 });
 
 
+
 // ===========================================
 // GET /cleanup/all
 // ===========================================
@@ -142,11 +160,13 @@ router.get("/all", async (req, res) => {
     console.log("🕑 Starting cleanup of all old data...");
 
 
+
     // Calculate timestamps
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
     const tenMinsAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
 
 
     // Delete checking logs older than 10 minutes (both book return and attendance)
@@ -157,12 +177,14 @@ router.get("/all", async (req, res) => {
       .ilike("log_message", "%🔄 Checking for%");
 
 
+
     // Delete non-error device logs older than 3 days
     const { error: nonErrorError } = await supabase
       .from("device_logs")
       .delete()
       .lt("created_at", threeDaysAgo)
       .not("log_message", "ilike", "%❌%");
+
 
 
     // Delete error logs older than 7 days
@@ -173,11 +195,13 @@ router.get("/all", async (req, res) => {
       .ilike("log_message", "%❌%");
 
 
+
     // Delete scan requests older than 24 hours
     const { error: requestsError } = await supabase
       .from("scan_requests")
       .delete()
       .lt("created_at", oneDayAgo);
+
 
 
     if (checkingError) {
@@ -194,6 +218,7 @@ router.get("/all", async (req, res) => {
     }
 
 
+
     if (checkingError || nonErrorError || errorLogsError || requestsError) {
       return res.status(500).json({ 
         success: false, 
@@ -206,6 +231,7 @@ router.get("/all", async (req, res) => {
         } 
       });
     }
+
 
 
     console.log("✅ All cleanup completed successfully");
@@ -225,26 +251,33 @@ router.get("/all", async (req, res) => {
   }
 });
 
-router.get("/test-logs", async (req, res) => {
+
+
+// ===========================================
+// GET /cleanup/view-logs
+// ===========================================
+router.get("/view-logs", async (req, res) => {
   try {
     const { data, error } = await supabase
       .from("device_logs")
       .select("*")
       .order("created_at", { ascending: false })
-      .limit(5);
+      .limit(50);
 
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
 
     res.json({ 
       success: true,
-      current_time: new Date().toISOString(),
-      ten_mins_ago: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
-      recent_logs: data
+      total_logs: data.length,
+      logs: data
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ success: false, error: err.message });
   }
 });
+
 
 
 module.exports = router;
