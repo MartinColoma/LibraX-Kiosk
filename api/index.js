@@ -8,7 +8,8 @@ const attendanceRouter = require("./routes/PatronAttendance/attendance");
 const opacSearchRouter = require("./routes/OPAC/opacSearch");
 const bookRequestRouter = require("./routes/bookrequests/bookRequests");
 const authRouter = require("./routes/auth/verify-password");
-const bookReturnRouter = require("./routes/returnbooks/returnBooks-api"); // ✅ ADD THIS
+const bookReturnRouter = require("./routes/returnbooks/returnBooks-api"); 
+const cleanupRouter = require("./routes/clean_up_logs/cleanup");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -33,7 +34,8 @@ app.use("/attendance", attendanceRouter);
 app.use("/opac", opacSearchRouter);
 app.use("/books", bookRequestRouter);
 app.use("/auth", authRouter);
-app.use("/return-books", bookReturnRouter); // ✅ ADD THIS LINE
+app.use("/return-books", bookReturnRouter); 
+app.use("/cleanup", cleanupRouter);
 
 // Health check
 app.get("/", (req, res) => {
