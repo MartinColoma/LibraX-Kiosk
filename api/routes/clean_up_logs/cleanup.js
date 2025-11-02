@@ -225,5 +225,26 @@ router.get("/all", async (req, res) => {
   }
 });
 
+router.get("/test-logs", async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from("device_logs")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(5);
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    res.json({ 
+      success: true,
+      current_time: new Date().toISOString(),
+      ten_mins_ago: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+      recent_logs: data
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 module.exports = router;
