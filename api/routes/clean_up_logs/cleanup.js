@@ -1,5 +1,7 @@
 const express = require("express");
 const { createClient } = require("@supabase/supabase-js");
+const cron = require("node-cron");
+
 
 
 
@@ -7,10 +9,61 @@ const router = express.Router();
 
 
 
+
 // Supabase setup
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+
+
+
+// ===========================================
+// CRON JOB - Run cleanup every 10 minutes
+// ===========================================
+cron.schedule("*/10 * * * *", async () => {
+  console.log("🕑 [CRON] Starting automatic cleanup...");
+
+  try {
+    // Calculate timestamps
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+    const tenMinsAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    // Delete checking logs older than 10 minutes
+    await supabase
+      .from("device_logs")
+      .delete()
+      .lt("created_at", tenMinsAgo)
+      .ilike("log_message", "%🔄 Checking for%");
+
+    // Delete non-error device logs older than 3 days
+    await supabase
+      .from("device_logs")
+      .delete()
+      .lt("created_at", threeDaysAgo)
+      .not("log_message", "ilike", "%❌%");
+
+    // Delete error logs older than 7 days
+    await supabase
+      .from("device_logs")
+      .delete()
+      .lt("created_at", sevenDaysAgo)
+      .ilike("log_message", "%❌%");
+
+    // Delete scan requests older than 24 hours
+    await supabase
+      .from("scan_requests")
+      .delete()
+      .lt("created_at", oneDayAgo);
+
+    console.log("✅ [CRON] Automatic cleanup completed successfully");
+  } catch (err) {
+    console.error("❌ [CRON] Automatic cleanup error:", err.message);
+  }
+});
+
 
 
 
@@ -23,10 +76,12 @@ router.get("/device-logs", async (req, res) => {
 
 
 
+
     // Calculate timestamps
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
     const tenMinsAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+
 
 
 
@@ -39,11 +94,13 @@ router.get("/device-logs", async (req, res) => {
 
 
 
+
     if (checkingError) {
       console.error("❌ Checking logs cleanup error:", checkingError.message);
     } else {
       console.log("✅ Checking logs cleaned (older than 10 minutes)");
     }
+
 
 
 
@@ -56,11 +113,13 @@ router.get("/device-logs", async (req, res) => {
 
 
 
+
     if (nonErrorError) {
       console.error("❌ Non-error logs cleanup error:", nonErrorError.message);
     } else {
       console.log("✅ Non-error logs cleaned (older than 3 days)");
     }
+
 
 
 
@@ -73,11 +132,13 @@ router.get("/device-logs", async (req, res) => {
 
 
 
+
     if (errorLogsError) {
       console.error("❌ Error logs cleanup error:", errorLogsError.message);
     } else {
       console.log("✅ Error logs cleaned (older than 7 days)");
     }
+
 
 
 
@@ -92,6 +153,7 @@ router.get("/device-logs", async (req, res) => {
         } 
       });
     }
+
 
 
 
@@ -113,6 +175,7 @@ router.get("/device-logs", async (req, res) => {
 
 
 
+
 // ===========================================
 // GET /cleanup/scan-requests
 // ===========================================
@@ -122,8 +185,10 @@ router.get("/scan-requests", async (req, res) => {
 
 
 
+
     // Calculate timestamp for 24 hours ago
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
 
 
 
@@ -135,10 +200,12 @@ router.get("/scan-requests", async (req, res) => {
 
 
 
+
     if (error) {
       console.error("❌ Scan requests cleanup error:", error.message);
       return res.status(500).json({ success: false, message: "Cleanup failed", error: error.message });
     }
+
 
 
 
@@ -152,6 +219,7 @@ router.get("/scan-requests", async (req, res) => {
 
 
 
+
 // ===========================================
 // GET /cleanup/all
 // ===========================================
@@ -161,11 +229,13 @@ router.get("/all", async (req, res) => {
 
 
 
+
     // Calculate timestamps
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
     const tenMinsAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
 
 
 
@@ -178,12 +248,14 @@ router.get("/all", async (req, res) => {
 
 
 
+
     // Delete non-error device logs older than 3 days
     const { error: nonErrorError } = await supabase
       .from("device_logs")
       .delete()
       .lt("created_at", threeDaysAgo)
       .not("log_message", "ilike", "%❌%");
+
 
 
 
@@ -196,11 +268,13 @@ router.get("/all", async (req, res) => {
 
 
 
+
     // Delete scan requests older than 24 hours
     const { error: requestsError } = await supabase
       .from("scan_requests")
       .delete()
       .lt("created_at", oneDayAgo);
+
 
 
 
@@ -219,6 +293,7 @@ router.get("/all", async (req, res) => {
 
 
 
+
     if (checkingError || nonErrorError || errorLogsError || requestsError) {
       return res.status(500).json({ 
         success: false, 
@@ -231,6 +306,7 @@ router.get("/all", async (req, res) => {
         } 
       });
     }
+
 
 
 
@@ -253,6 +329,7 @@ router.get("/all", async (req, res) => {
 
 
 
+
 // ===========================================
 // GET /cleanup/view-logs
 // ===========================================
@@ -264,9 +341,11 @@ router.get("/view-logs", async (req, res) => {
       .order("created_at", { ascending: false })
       .limit(50);
 
+
     if (error) {
       return res.status(500).json({ success: false, error: error.message });
     }
+
 
     res.json({ 
       success: true,
@@ -277,6 +356,7 @@ router.get("/view-logs", async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
 
 
 
