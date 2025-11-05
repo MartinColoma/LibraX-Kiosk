@@ -19,7 +19,7 @@ LibraX-Kiosk-Original
 │   │   ├── bookrequests
 │   │   │   └── bookRequests.js
 │   │   ├── chatbot
-│   │   │   └── witai.js
+│   │   │   └── gemini.js
 │   │   ├── clean_up_logs
 │   │   │   └── cleanup.js
 │   │   └── returnbooks
