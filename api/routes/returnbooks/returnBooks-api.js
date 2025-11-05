@@ -1,12 +1,15 @@
 const express = require("express");
 const { createClient } = require("@supabase/supabase-js");
 
+
 const router = express.Router();
+
 
 // Supabase setup
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
+
 
 // ===========================================
 // GET /return-books/user-borrowed
@@ -16,10 +19,13 @@ router.get("/user-borrowed", async (req, res) => {
     console.log("📚 GET /user-borrowed endpoint called");
     console.log("Query params:", req.query);
 
+
     let { user_id, nfc_uid, student_id } = req.query;
+
 
     if (student_id && student_id.includes(":")) student_id = student_id.split(":")[0];
     if (user_id && user_id.includes(":")) user_id = user_id.split(":")[0];
+
 
     if (!user_id && !nfc_uid && !student_id) {
       return res.status(400).json({
@@ -28,15 +34,19 @@ router.get("/user-borrowed", async (req, res) => {
       });
     }
 
+
     let userQuery = supabase.from("users").select("user_id, first_name, last_name, student_faculty_id");
+
 
     if (user_id) userQuery = userQuery.eq("user_id", user_id);
     else if (nfc_uid) userQuery = userQuery.eq("nfc_uid", nfc_uid);
     else if (student_id) userQuery = userQuery.eq("student_faculty_id", student_id);
 
+
     const { data: user, error: userError } = await userQuery.single();
     if (userError || !user)
       return res.status(404).json({ success: false, message: "User not found" });
+
 
     const { data: borrowedBooks, error: booksError } = await supabase
       .from("borrowed_books")
@@ -65,12 +75,14 @@ router.get("/user-borrowed", async (req, res) => {
       .in("status", ["Borrowed", "Overdue"])
       .order("borrow_date", { ascending: false });
 
+
     if (booksError)
       return res.status(500).json({
         success: false,
         message: "Failed to fetch borrowed books",
         error: booksError.message,
       });
+
 
     const today = new Date();
     const booksWithStatus = borrowedBooks.map((book) => {
@@ -82,6 +94,7 @@ router.get("/user-borrowed", async (req, res) => {
         days_overdue: isOverdue ? Math.floor((today - dueDate) / (1000 * 60 * 60 * 24)) : 0,
       };
     });
+
 
     res.status(200).json({
       success: true,
@@ -99,6 +112,7 @@ router.get("/user-borrowed", async (req, res) => {
   }
 });
 
+
 // ===========================================
 // POST /return-books/request-scan
 // ===========================================
@@ -106,24 +120,30 @@ router.post("/request-scan", async (req, res) => {
   try {
     const { sessionId, borrow_ids } = req.body;
 
+
     if (!sessionId || !borrow_ids || !Array.isArray(borrow_ids))
       return res.status(400).json({ success: false, message: "Missing sessionId or borrow_ids array" });
 
+
     const responseData = JSON.stringify({ borrow_ids, scan_type: "book_return" });
+
 
     const { data, error } = await supabase
       .from("scan_requests")
       .insert([{ session_id: sessionId, status: "pending", scan_type: "book_return", response: responseData }])
       .select();
 
+
     if (error)
       return res.status(500).json({ success: false, error: error.message });
+
 
     res.json({ success: true, requestId: data[0].id, request: data[0], borrow_ids });
   } catch (err) {
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
+
 
 // ===========================================
 // POST /return-books/scan-result
@@ -134,7 +154,9 @@ router.post("/scan-result", async (req, res) => {
     if (!requestId || !nfc_uid)
       return res.status(400).json({ success: false, message: "Missing requestId or nfc_uid" });
 
+
     const numRequestId = parseInt(requestId, 10);
+
 
     const { data: scanRequest, error: scanError } = await supabase
       .from("scan_requests")
@@ -144,11 +166,14 @@ router.post("/scan-result", async (req, res) => {
       .limit(1)
       .maybeSingle();
 
+
     if (scanError || !scanRequest)
       return res.status(404).json({ success: false, message: "Scan request not found" });
 
+
     const responseData = JSON.parse(scanRequest.response || "{}");
     const borrow_ids = responseData.borrow_ids || [];
+
 
     const { data: bookCopy, error: copyError } = await supabase
       .from("book_copies")
@@ -157,8 +182,10 @@ router.post("/scan-result", async (req, res) => {
       .limit(1)
       .maybeSingle();
 
+
     if (copyError || !bookCopy)
       return res.status(404).json({ success: false, message: "Book copy not found with this NFC UID" });
+
 
     const { data: borrowRecords, error: borrowError } = await supabase
       .from("borrowed_books")
@@ -167,10 +194,13 @@ router.post("/scan-result", async (req, res) => {
       .in("borrow_id", borrow_ids)
       .in("status", ["Borrowed", "Overdue"]);
 
+
     if (borrowError || !borrowRecords || borrowRecords.length === 0)
       return res.status(404).json({ success: false, message: "This book is not in your selected return list or already returned" });
 
+
     const borrowRecord = borrowRecords[0];
+
 
     // ✅ Update borrowed_books
     await supabase
@@ -182,20 +212,24 @@ router.post("/scan-result", async (req, res) => {
       })
       .eq("borrow_id", borrowRecord.borrow_id);
 
+
     // ✅ Update book_copies to Available
     await supabase
       .from("book_copies")
       .update({ status: "Available" })
       .eq("copy_id", bookCopy.copy_id);
 
+
     // ✅ Increment available_copies in books table
     const { error: incrementError } = await supabase.rpc("increment_available_copies", {
       target_book_id: bookCopy.book_id,
     });
 
+
     if (incrementError) {
       console.error("⚠️ Failed to increment available copies:", incrementError.message);
     }
+
 
     // ✅ Update scan_requests
     const remainingBorrowIds = borrow_ids.filter((id) => id !== borrowRecord.borrow_id);
@@ -210,12 +244,15 @@ router.post("/scan-result", async (req, res) => {
       remaining_borrow_ids: remainingBorrowIds,
     };
 
+
     const newStatus = remainingBorrowIds.length === 0 ? "completed" : "pending";
+
 
     await supabase
       .from("scan_requests")
       .update({ status: newStatus, response: JSON.stringify(updatedResponse) })
       .eq("id", numRequestId);
+
 
     res.json({
       success: true,
@@ -233,6 +270,7 @@ router.post("/scan-result", async (req, res) => {
   }
 });
 
+
 // ===========================================
 // GET /return-books/scan-status
 // ===========================================
@@ -242,7 +280,9 @@ router.get("/scan-status", async (req, res) => {
     if (!requestId)
       return res.status(400).json({ success: false, message: "Missing requestId" });
 
+
     const numRequestId = parseInt(requestId, 10);
+
 
     const { data, error } = await supabase
       .from("scan_requests")
@@ -252,10 +292,13 @@ router.get("/scan-status", async (req, res) => {
       .limit(1)
       .maybeSingle();
 
+
     if (error || !data)
       return res.status(404).json({ success: false, message: "Scan request not found" });
 
+
     const responseData = JSON.parse(data.response || "{}");
+
 
     res.status(200).json({
       success: true,
@@ -268,6 +311,7 @@ router.get("/scan-status", async (req, res) => {
   }
 });
 
+
 // ===========================================
 // POST /return-books/cancel-request
 // ===========================================
@@ -277,6 +321,7 @@ router.post("/cancel-request", async (req, res) => {
     if (!requestId)
       return res.status(400).json({ success: false, message: "Missing requestId" });
 
+
     const numRequestId = parseInt(requestId, 10);
     const { error } = await supabase
       .from("scan_requests")
@@ -284,14 +329,17 @@ router.post("/cancel-request", async (req, res) => {
       .eq("id", numRequestId)
       .eq("scan_type", "book_return");
 
+
     if (error)
       return res.status(500).json({ success: false, message: "Failed to cancel scan request" });
+
 
     res.status(200).json({ success: true, message: "Scan request cancelled" });
   } catch (err) {
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
+
 
 // ===========================================
 // GET /return-books/get-pending-request
@@ -307,13 +355,47 @@ router.get("/get-pending-request", async (req, res) => {
       .limit(1)
       .maybeSingle();
 
+
     if (error || !data)
       return res.status(404).json({ success: false, message: "No pending requests" });
+
 
     res.json({ success: true, request: data });
   } catch (err) {
     res.status(500).json({ success: false, message: "Server error" });
   }
 });
+
+
+// ===========================================
+// GET /return-books/cleanup-old-requests
+// ===========================================
+router.get("/cleanup-old-requests", async (req, res) => {
+  try {
+    console.log("🕑 Starting cleanup of old scan requests...");
+
+    // Calculate timestamp for 24 hours ago
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    // Delete scan requests older than 24 hours
+    const { error } = await supabase
+      .from("scan_requests")
+      .delete()
+      .eq("scan_type", "book_return")
+      .lt("created_at", oneDayAgo);
+
+    if (error) {
+      console.error("❌ Cleanup error:", error.message);
+      return res.status(500).json({ success: false, message: "Cleanup failed", error: error.message });
+    }
+
+    console.log("✅ Cleanup completed successfully - Deleted scan requests older than 24 hours");
+    res.json({ success: true, message: "Old scan requests cleaned up successfully" });
+  } catch (err) {
+    console.error("❌ Cleanup error:", err.message);
+    res.status(500).json({ success: false, message: "Server error", error: err.message });
+  }
+});
+
 
 module.exports = router;

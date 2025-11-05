@@ -52,6 +52,20 @@ async function fetchWikidataInstantAnswer(query: string): Promise<string> {
   }
 }
 
+// Function to fetch NLP analysis from Wit.ai via backend
+async function fetchWitAIResponse(message: string): Promise<any> {
+  const response = await fetch('https://librax-kiosk-api.onrender.com/witai/message', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message }),
+  });
+  if (!response.ok) {
+    throw new Error('Wit.ai backend error');
+  }
+  const data = await response.json();
+  return data;
+}
+
 const Chatbot: React.FC = () => {
   const [messages, setMessages] = useState(initialMessages);
   const [input, setInput] = useState('');
@@ -61,7 +75,6 @@ const Chatbot: React.FC = () => {
   const handleSend = async () => {
     if (input.trim() === '') return;
 
-    // Add user's message to chat
     setMessages(prev => [
       ...prev,
       { id: prev.length + 1, text: input, sender: 'user' },
@@ -72,37 +85,38 @@ const Chatbot: React.FC = () => {
     setIsTyping(true); // show typing animation
 
     try {
-      // Fetch instant answer from DuckDuckGo
+      // Step 1: Get instant answers
       let duckAnswer = await fetchDuckDuckGoInstantAnswer(userInput);
 
-      // If DuckDuckGo returns no relevant answer, try Wikidata
       if (duckAnswer === 'No relevant instant answer found.') {
         duckAnswer = await fetchWikidataInstantAnswer(userInput);
       }
 
-      const combinedPrompt = `Instant answer: ${duckAnswer}\n\nQuestion: ${userInput}\nPlease answer briefly and concisely.`;
+      // Step 2: Get Wit.ai NLP analysis
+      let witReply = '';
+      try {
+        const witData = await fetchWitAIResponse(userInput);
 
-      // Call your local TinyLlama API with generation parameters to limit answer length
-      const response = await fetch('/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'gpt2-large',
-          messages: [{ role: 'user', content: combinedPrompt }],
-          n_predict: 50,
-          temperature: 0.8,
-          top_k: 40,
-          top_p: 0.95,
-          repeat_penalty: 1.1
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`LM Studio API error: ${response.statusText}`);
+        if (witData.intents?.length > 0) {
+          const mainIntent = witData.intents[0].name;
+          if (mainIntent === 'greet') witReply = 'Hello! How can I assist you?';
+          else if (mainIntent === 'book_query') witReply = 'Let me help you with your book inquiry.';
+          else witReply = `Intent detected: ${mainIntent}.`;
+        } else {
+          witReply = 'Sorry, I did not understand that.';
+        }
+        // Example: show entities if detected
+        if (witData.entities && Object.keys(witData.entities).length > 0) {
+          witReply += `\nEntities: ${Object.entries(witData.entities)
+            .map(([key, val]) => `${key}: ${(val as any)[0].value}`)
+            .join(', ')}`;
+        }
+      } catch (witErr) {
+        witReply = 'Wit.ai service error.';
       }
 
-      const data = await response.json();
-      const botReply = data.choices?.[0]?.message?.content || 'Sorry, no response.';
+      // Step 3: Combine Wit.ai + DuckDuckGo/Wikidata for bot reply
+      const botReply = `Instant Answer: ${duckAnswer}\nWit.ai: ${witReply}`;
 
       setMessages(prev => [
         ...prev,
@@ -121,7 +135,6 @@ const Chatbot: React.FC = () => {
 
   return (
     <div className={styles.chatbotContainer}>
-      {/* Header with collapse toggle */}
       <div className={styles.header} onClick={() => setOpen(o => !o)}>
         <span>LibraX <b>ChatBot</b></span>
         <span className={styles.arrow}>{open ? '▼' : '▲'}</span>

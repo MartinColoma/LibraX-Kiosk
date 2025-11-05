@@ -422,7 +422,7 @@ const ReturnBooks: React.FC = () => {
                     className={styles.checkbox}
                   />
                   <div className={styles.bookDetails}>
-                    <h3 className={styles.bookTitle}>{book.books.title}</h3>
+                    <h3 className={styles.bookTitle}>{book.books?.title}</h3>
                     {book.books.subtitle && (
                       <p className={styles.bookSubtitle}>{book.books.subtitle}</p>
                     )}
