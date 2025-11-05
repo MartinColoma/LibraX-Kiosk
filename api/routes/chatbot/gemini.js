@@ -4,7 +4,7 @@ const router = express.Router();
 // node-fetch shim
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
-const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY; // From .env
+const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY; // Your Gemini API key
 
 router.post('/gemini', async (req, res) => {
   console.log('Received request to /chatbot/gemini');
@@ -13,7 +13,7 @@ router.post('/gemini', async (req, res) => {
   if (!message) return res.status(400).json({ error: 'Missing message' });
 
   try {
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GOOGLE_API_KEY}`;
+    const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
     console.log('Calling Gemini API at:', endpoint);
 
     const body = {
@@ -26,7 +26,10 @@ router.post('/gemini', async (req, res) => {
 
     const response = await fetch(endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'x-goog-api-key': GOOGLE_API_KEY,
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify(body),
     });
 
@@ -34,7 +37,7 @@ router.post('/gemini', async (req, res) => {
     const data = await response.json();
 
     if (!response.ok) {
-      console.log('Error from Gemini API:', data);
+      console.error('Error from Gemini API:', data);
       return res.status(response.status).json({ error: data });
     }
 
