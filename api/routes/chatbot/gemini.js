@@ -1,10 +1,12 @@
 const express = require('express');
 const router = express.Router();
+
+// Dynamic import shim for node-fetch v3+ in CommonJS
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
-const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY; // Put your key in .env
+const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY; // From your .env
 
-// Handle POST /chatbot/gemini with JSON body { message: "user query" }
+// POST /chatbot/gemini endpoint
 router.post('/gemini', async (req, res) => {
   const { message } = req.body;
   if (!message || typeof message !== 'string') {
@@ -22,6 +24,7 @@ router.post('/gemini', async (req, res) => {
       temperature: 0.5,
     };
 
+    // Await the fetch call since fetch itself is async here
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
@@ -40,13 +43,13 @@ router.post('/gemini', async (req, res) => {
 
     if (data?.candidates && data.candidates.length > 0) {
       const answer = data.candidates[0].output || 'No answer generated.';
-      res.json({ answer });
+      return res.json({ answer });
     } else {
-      res.json({ answer: 'No answer generated.' });
+      return res.json({ answer: 'No answer generated.' });
     }
   } catch (error) {
     console.error('Gemini API error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
