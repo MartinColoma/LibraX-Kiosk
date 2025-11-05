@@ -6,19 +6,20 @@ const initialMessages = [
   { id: 2, text: 'I can help with book titles, authors, and release dates. What would you like to know?', sender: 'bot' },
 ];
 
-async function fetchGeminiAnswer(message: string): Promise<string> {
-  const response = await fetch('https://librax-kiosk-api.onrender.com/chatbot/gemini', {
+async function fetchGemmaAnswer(message: string): Promise<string> {
+  const response = await fetch('https://librax-kiosk-api.onrender.com/chatbot/gemma', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message }),
   });
-  if (!response.ok) throw new Error('Gemini API backend error');
+  if (!response.ok) throw new Error('Gemma API backend error');
   const data = await response.json();
-  return data.answer || 'No answer from Gemini.';
+  return data.answer || 'No answer from Gemma.';
 }
 
 const isBookRelatedQuery = (query: string): boolean => {
   const keywords = [
+    // same keywords list as before
     'book', 'author', 'title', 'release date', 'published', 'publisher',
     'novel', 'story', 'series', 'volume', 'edition', 'isbn', 'literature',
     'writer', 'written', 'write', 'writing', 'fiction', 'non-fiction',
@@ -40,12 +41,11 @@ const isBookRelatedQuery = (query: string): boolean => {
     'writing style', 'bestseller list', 'book award', 'pulitzer', 'man booker',
     'new release', 'classic literature', 'famous author', 'book quotes', 'literary critic',
     'book summary', 'reading recommendations', 'literature review', 'book club picks',
-    'book quotes', 'literary awards', 'publish date', 'print run', 'limited edition'
+    'book quotes', 'literary awards', 'publish date', 'print run', 'limited edition',
   ];
   const qLower = query.toLowerCase();
   return keywords.some(keyword => qLower.includes(keyword));
 };
-
 
 const Chatbot: React.FC = () => {
   const [messages, setMessages] = useState(initialMessages);
@@ -68,8 +68,8 @@ const Chatbot: React.FC = () => {
           { id: prev.length + 1, text: "Sorry, I only answer book-related questions. Please ask about an author, title, or book release.", sender: 'bot' },
         ]);
       } else {
-        const geminiAnswer = await fetchGeminiAnswer(userInput);
-        setMessages(prev => [...prev, { id: prev.length + 1, text: geminiAnswer, sender: 'bot' }]);
+        const gemmaAnswer = await fetchGemmaAnswer(userInput);
+        setMessages(prev => [...prev, { id: prev.length + 1, text: gemmaAnswer, sender: 'bot' }]);
       }
     } catch (error: any) {
       setMessages(prev => [...prev, { id: prev.length + 1, text: `Error: ${error.message}`, sender: 'bot' }]);

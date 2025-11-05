@@ -10,7 +10,7 @@ const bookRequestRouter = require("./routes/bookrequests/bookRequests");
 const authRouter = require("./routes/auth/verify-password");
 const bookReturnRouter = require("./routes/returnbooks/returnBooks-api"); 
 const cleanupRouter = require("./routes/clean_up_logs/cleanup");
-const geminiRouter = require('./routes/chatbot/gemini');
+const gemmaRouter = require('./routes/chatbot/gemma');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -36,7 +36,7 @@ app.use("/books", bookRequestRouter);
 app.use("/auth", authRouter);
 app.use("/return-books", bookReturnRouter); 
 app.use("/cleanup", cleanupRouter);
-app.use('/chatbot', geminiRouter);
+app.use('/chatbot', gemmaRouter);
 
 // Health check
 app.get("/", (req, res) => {
