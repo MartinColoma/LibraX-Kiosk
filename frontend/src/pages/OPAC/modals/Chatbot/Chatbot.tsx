@@ -35,7 +35,7 @@ async function fetchWikidataInstantAnswer(query: string): Promise<string> {
 
   try {
     const response = await fetch(url, {
-      headers: { 'Accept': 'application/sparql-results+json' }
+      headers: { 'Accept': 'application/sparql-results+json' },
     });
     if (!response.ok) throw new Error('Wikidata API error');
     const data = await response.json();
@@ -52,9 +52,9 @@ async function fetchWikidataInstantAnswer(query: string): Promise<string> {
   }
 }
 
-// Function to fetch NLP analysis from Wit.ai via backend
+// Function to fetch NLP analysis from Wit.ai via backend (updated route)
 async function fetchWitAIResponse(message: string): Promise<any> {
-  const response = await fetch('https://librax-kiosk-api.onrender.com/witai/message', {
+  const response = await fetch('https://librax-kiosk-api.onrender.com/witaichatbot/message', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message }),
@@ -105,7 +105,7 @@ const Chatbot: React.FC = () => {
         } else {
           witReply = 'Sorry, I did not understand that.';
         }
-        // Example: show entities if detected
+        // Show entities if detected
         if (witData.entities && Object.keys(witData.entities).length > 0) {
           witReply += `\nEntities: ${Object.entries(witData.entities)
             .map(([key, val]) => `${key}: ${(val as any)[0].value}`)
@@ -135,6 +135,7 @@ const Chatbot: React.FC = () => {
 
   return (
     <div className={styles.chatbotContainer}>
+      {/* Header with collapse toggle */}
       <div className={styles.header} onClick={() => setOpen(o => !o)}>
         <span>LibraX <b>ChatBot</b></span>
         <span className={styles.arrow}>{open ? '▼' : '▲'}</span>
