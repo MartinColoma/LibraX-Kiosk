@@ -20,11 +20,32 @@ async function fetchGeminiAnswer(message: string): Promise<string> {
 const isBookRelatedQuery = (query: string): boolean => {
   const keywords = [
     'book', 'author', 'title', 'release date', 'published', 'publisher',
-    'novel', 'story', 'series', 'volume', 'edition', 'isbn', 'literature'
+    'novel', 'story', 'series', 'volume', 'edition', 'isbn', 'literature',
+    'writer', 'written', 'write', 'writing', 'fiction', 'non-fiction',
+    'best-seller', 'plot', 'characters', 'reviews', 'summary', 'synopsis',
+    'chapter', 'pages', 'read', 'reading', 'recommendation', 'recommend',
+    'harry potter', 'dune', 'tolkien', 'rowling', 'martin', 'asimov',
+    'biography', 'memoir', 'prologue', 'epilogue', 'theme', 'genre',
+    'author of', 'who wrote', 'when was', 'first published', 'latest book',
+    'upcoming book', 'book release', 'book launch', 'book sale', 'book club',
+    'literary', 'classic', 'award-winning', 'bestselling', 'publisher',
+    'literature', 'based on a book', 'book adaptation', 'audiobook',
+    'e-book', 'paperback', 'hardcover', 'print edition', 'bookstore',
+    'library', 'reading list', 'book signing', 'book festival', 'reading challenge',
+    'book genre', 'historical fiction', 'science fiction', 'fantasy',
+    'romance novel', 'mystery novel', 'thriller', 'nonfiction',
+    'children’s book', 'young adult', 'YA novel', 'graphic novel',
+    'book title', 'book cover', 'book synopsis', 'reading level',
+    'book series', 'sequel', 'prequel', 'final chapter', 'author interview',
+    'writing style', 'bestseller list', 'book award', 'pulitzer', 'man booker',
+    'new release', 'classic literature', 'famous author', 'book quotes', 'literary critic',
+    'book summary', 'reading recommendations', 'literature review', 'book club picks',
+    'book quotes', 'literary awards', 'publish date', 'print run', 'limited edition'
   ];
   const qLower = query.toLowerCase();
   return keywords.some(keyword => qLower.includes(keyword));
 };
+
 
 const Chatbot: React.FC = () => {
   const [messages, setMessages] = useState(initialMessages);
