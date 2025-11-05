@@ -7,7 +7,7 @@ router.post('/message', async (req, res) => {
   if (!message) return res.status(400).json({ error: 'Message is required' });
 
   try {
-    const response = await fetch(`https://api.wit.ai/message?v=20241105&q=${encodeURIComponent(message)}`, {
+    const response = await fetch(`https://api.wit.ai/message?v=20251105&q=${encodeURIComponent(message)}`, {
       headers: { Authorization: `Bearer ${process.env.WITAI_TOKEN}` }
     });
 

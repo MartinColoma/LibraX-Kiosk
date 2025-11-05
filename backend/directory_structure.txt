@@ -18,6 +18,10 @@ LibraX-Kiosk-Original
 │   │   │   └── verify-password.js
 │   │   ├── bookrequests
 │   │   │   └── bookRequests.js
+│   │   ├── chatbot
+│   │   │   └── witai.js
+│   │   ├── clean_up_logs
+│   │   │   └── cleanup.js
 │   │   └── returnbooks
 │   │       └── returnBooks-api.js
 │   └── utils
