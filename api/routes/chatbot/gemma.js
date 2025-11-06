@@ -73,10 +73,10 @@ router.post('/gemma', async (req, res) => {
     if (searchResults && searchResults.AbstractText) {
       conversation += `Web search result: ${searchResults.AbstractText}\n`;
     } else if (doSearch) {
-      conversation += "No helpful information found on the web.\n";
+      conversation += "No relevant or helpful information found on the web. Rely on your knowledge.\n";
     }
 
-    // Add clear instruction to avoid repeating user input verbatim
+    // Add clear instruction to avoid repeating user input verbatim and answer concisely
     conversation += `Answer concisely and clearly without repeating the user's exact words. Reformulate and provide the best information possible.\nBot:`;
 
     const fastapiResponse = await axios.post(
