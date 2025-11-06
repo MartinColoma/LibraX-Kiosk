@@ -7,21 +7,6 @@ const TUNNEL_URL = 'https://reading-interfaces-games-cingular.trycloudflare.com'
 // In-memory cache for DuckDuckGo search results
 const searchCache = new Map();
 
-const noSearchTriggers = [
-  'hi', 'hello', 'hey', 'how are you', 'thanks', 'thank you', 'bye', 'ok',
-  'who are you', 'help', 'what can you do', 'please',
-  '?', '.', '!', 'cool', 'wow', 'yes', 'no', 'repeat', 'again'
-];
-
-// Does this message need external search?
-function needsSearch(message) {
-  const msg = message.toLowerCase().trim();
-  if (msg.length <= 2) return false;
-  if (noSearchTriggers.some(trigger => msg.includes(trigger))) return false;
-  if (/^[\?\.\!\s]+$/.test(msg)) return false;
-  return true;
-}
-
 // DuckDuckGo search with timeout and cache
 async function quickSearchDuckDuckGo(query) {
   if (searchCache.has(query)) return searchCache.get(query);
@@ -55,11 +40,10 @@ router.post('/gemma', async (req, res) => {
   if (!message) return res.status(400).json({ error: 'Message is required' });
 
   try {
-    // Always do search regardless of triggers
     const searchResults = await quickSearchDuckDuckGo(message);
     const recentChat = chatHistory.slice(-5);
 
-    let conversation = '';
+    let conversation = 'This is what we have in our previous chat:\n';
     for (const msg of recentChat) {
       conversation += `${msg.sender === 'user' ? 'User' : 'Bot'}: ${msg.text}\n`;
     }
@@ -69,15 +53,12 @@ router.post('/gemma', async (req, res) => {
       conversation += "User believes your previous answer was inaccurate.\n";
     }
 
-    // Always include search results or indicate no info found
     if (searchResults && searchResults.AbstractText) {
       conversation += `Web search result: ${searchResults.AbstractText}\n`;
     } else {
       conversation += "Web search result: No relevant info found.\n";
     }
 
-    // Explicit instruction to answer questions clearly, concisely, avoid repetition,
-    // and base answers on search + memory context.
     conversation += `Answer the user's question clearly and concisely without repeating their exact words. Use the information from the web search result and past conversation. If uncertain, say 'I'm not sure.'\nBot:`;
 
     const fastapiResponse = await axios.post(
