@@ -76,8 +76,8 @@ router.post('/gemma', async (req, res) => {
       conversation += "No helpful information found on the web.\n";
     }
 
-    // Key instruction for conciseness and directness
-    conversation += `Answer using the best information. Reply with the clearest, shortest possible response. If you do not know, say "I'm not sure." Limit to 1-2 sentences. Do not repeat user input.\nBot:`;
+    // Add clear instruction to avoid repeating user input verbatim
+    conversation += `Answer concisely and clearly without repeating the user's exact words. Reformulate and provide the best information possible.\nBot:`;
 
     const fastapiResponse = await axios.post(
       `${TUNNEL_URL}/predict`,
