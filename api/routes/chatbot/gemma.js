@@ -40,7 +40,9 @@ router.post('/gemma', async (req, res) => {
   if (!message) return res.status(400).json({ error: 'Message is required' });
 
   try {
+    // No limits or restrictions: always do search
     const searchResults = await quickSearchDuckDuckGo(message);
+    // Send full last 5 chat messages as context
     const recentChat = chatHistory.slice(-5);
 
     let conversation = 'This is what we have in our previous chat:\n';
