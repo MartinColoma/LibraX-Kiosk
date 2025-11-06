@@ -2,10 +2,8 @@ const express = require('express');
 const axios = require('axios');
 const router = express.Router();
 
-const TUNNEL_URL = 'https://reading-interfaces-games-cingular.trycloudflare.com';
-// your tunnel URL
+const TUNNEL_URL = 'https://reading-interfaces-games-cingular.trycloudflare.com'; // your tunnel URL
 
-// Example function that calls DuckDuckGo Instant Answer API
 async function quickSearchDuckDuckGo(query) {
   try {
     const response = await axios.get('https://api.duckduckgo.com/', {
@@ -28,26 +26,24 @@ router.post('/gemma', async (req, res) => {
   if (!message) return res.status(400).json({ error: 'Message is required' });
 
   try {
-    // Step 1: Use a simple heuristic or external service to detect if quick search is needed
-    const needsSearch = /* your logic here, e.g., assume true for now */ true;
-    
-    let searchContext = '';
-    if (needsSearch) {
-      const searchResults = await quickSearchDuckDuckGo(message);
-      // Extract relevant info from searchResults to include in prompt
-      if (searchResults && searchResults.AbstractText) {
-        searchContext = `Quick search info: ${searchResults.AbstractText}`;
-      }
-    }
+    // Start DuckDuckGo search without awaiting right away
+    const quickSearchPromise = quickSearchDuckDuckGo(message);
 
-    // Step 2: Build the prompt input to Gemma combining chat history, user message, and context
+    // Build chat prompt minimal immediately (to save time)
     let conversation = '';
-    for (const msg of chatHistory) {
+    for (const msg of chatHistory.slice(-5)) {  // Limit chat history to last 5 messages
       conversation += `${msg.sender === 'user' ? 'User' : 'Bot'}: ${msg.text}\n`;
     }
-    conversation += `User: ${message}\n${searchContext ? searchContext + '\n' : ''}Bot:`;
+    conversation += `User: ${message}\n`;
 
-    // Step 3: Send prompt to FastAPI Gemma model
+    // Await DuckDuckGo search result and add search context if available
+    const searchResults = await quickSearchPromise;
+    if (searchResults && searchResults.AbstractText) {
+      conversation += `Quick search info: ${searchResults.AbstractText}\n`;
+    }
+    conversation += 'Bot:';
+
+    // Send prompt to FastAPI model
     const fastapiResponse = await axios.post(
       `${TUNNEL_URL}/predict`,
       { text: conversation },
