@@ -55,8 +55,8 @@ router.post('/gemma', async (req, res) => {
   if (!message) return res.status(400).json({ error: 'Message is required' });
 
   try {
-    const doSearch = needsSearch(message);
-    const searchPromise = doSearch ? quickSearchDuckDuckGo(message) : Promise.resolve(null);
+    // Always do search regardless of triggers
+    const searchResults = await quickSearchDuckDuckGo(message);
     const recentChat = chatHistory.slice(-5);
 
     let conversation = '';
@@ -69,15 +69,16 @@ router.post('/gemma', async (req, res) => {
       conversation += "User believes your previous answer was inaccurate.\n";
     }
 
-    const searchResults = await searchPromise;
+    // Always include search results or indicate no info found
     if (searchResults && searchResults.AbstractText) {
       conversation += `Web search result: ${searchResults.AbstractText}\n`;
-    } else if (doSearch) {
-      conversation += "No relevant or helpful information found on the web. Rely on your knowledge.\n";
+    } else {
+      conversation += "Web search result: No relevant info found.\n";
     }
 
-    // Add clear instruction to avoid repeating user input verbatim and answer concisely
-    conversation += `Answer concisely and clearly without repeating the user's exact words. Reformulate and provide the best information possible.\nBot:`;
+    // Explicit instruction to answer questions clearly, concisely, avoid repetition,
+    // and base answers on search + memory context.
+    conversation += `Answer the user's question clearly and concisely without repeating their exact words. Use the information from the web search result and past conversation. If uncertain, say 'I'm not sure.'\nBot:`;
 
     const fastapiResponse = await axios.post(
       `${TUNNEL_URL}/predict`,
