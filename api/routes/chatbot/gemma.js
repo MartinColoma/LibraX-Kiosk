@@ -7,7 +7,6 @@ const TUNNEL_URL = 'https://reading-interfaces-games-cingular.trycloudflare.com'
 // In-memory cache for DuckDuckGo search results
 const searchCache = new Map();
 
-// DuckDuckGo search with timeout and cache
 async function quickSearchDuckDuckGo(query) {
   if (searchCache.has(query)) return searchCache.get(query);
 
@@ -20,7 +19,7 @@ async function quickSearchDuckDuckGo(query) {
         no_html: 1,
         skip_disambig: 1,
       },
-      timeout: 1500
+      timeout: 2000
     });
     searchCache.set(query, response.data);
     setTimeout(() => searchCache.delete(query), 10 * 60 * 1000);
@@ -30,7 +29,6 @@ async function quickSearchDuckDuckGo(query) {
   }
 }
 
-// Detects correction feedback
 function userIsCorrecting(message) {
   return /no|not correct|wrong|but/i.test(message.toLowerCase());
 }
@@ -40,28 +38,46 @@ router.post('/gemma', async (req, res) => {
   if (!message) return res.status(400).json({ error: 'Message is required' });
 
   try {
-    // No limits or restrictions: always do search
     const searchResults = await quickSearchDuckDuckGo(message);
-    // Send full last 5 chat messages as context
     const recentChat = chatHistory.slice(-5);
 
-    let conversation = 'This is what we have in our previous chat:\n';
-    for (const msg of recentChat) {
-      conversation += `${msg.sender === 'user' ? 'User' : 'Bot'}: ${msg.text}\n`;
-    }
-    conversation += `User: ${message}\n`;
-
-    if (userIsCorrecting(message)) {
-      conversation += "User believes your previous answer was inaccurate.\n";
-    }
-
-    if (searchResults && searchResults.AbstractText) {
-      conversation += `Web search result: ${searchResults.AbstractText}\n`;
-    } else {
-      conversation += "Web search result: No relevant info found.\n";
+    let webSummary = '';
+    if (searchResults) {
+      if (searchResults.AbstractText) {
+        webSummary = searchResults.AbstractText;
+      } else if (searchResults.RelatedTopics?.length) {
+        const topics = searchResults.RelatedTopics.slice(0, 2)
+          .map(t => t.Text)
+          .join(' | ');
+        webSummary = topics || 'No relevant info found.';
+      } else {
+        webSummary = 'No relevant info found.';
+      }
     }
 
-    conversation += `Answer the user's question clearly and concisely without repeating their exact words. Use the information from the web search result and past conversation. If uncertain, say 'I'm not sure.'\nBot:`;
+    const conversation = `
+You are LibraX — a friendly AI librarian that helps users with information about books, authors, songs, and general knowledge.
+
+Your goals:
+- Be conversational, friendly, and informative.
+- If the search provides info, use it.
+- If the search fails, politely admit you’re not sure, but try to infer context.
+- Never just say “I’m not sure.” unless you truly have no clue.
+
+Previous chat:
+${recentChat.map(msg => `${msg.sender === 'user' ? 'User' : 'LibraX'}: ${msg.text}`).join('\n')}
+
+New user message:
+User: ${message}
+
+Web search result summary:
+${webSummary}
+
+If the user is correcting you, acknowledge that briefly.
+
+Now answer clearly and naturally as LibraX, in one or two sentences.
+LibraX:
+`;
 
     const fastapiResponse = await axios.post(
       `${TUNNEL_URL}/predict`,
