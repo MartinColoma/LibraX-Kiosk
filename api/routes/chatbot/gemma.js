@@ -2,20 +2,55 @@ const express = require('express');
 const axios = require('axios');
 const router = express.Router();
 
-const TUNNEL_URL = 'https://css-innovations-conclude-inspection.trycloudflare.com'; // <-- Replace with your tunnel URL
+const TUNNEL_URL = 'https://css-innovations-conclude-inspection.trycloudflare.com'; // your tunnel URL
+
+// Example function that calls DuckDuckGo Instant Answer API
+async function quickSearchDuckDuckGo(query) {
+  try {
+    const response = await axios.get('https://api.duckduckgo.com/', {
+      params: {
+        q: query,
+        format: 'json',
+        no_redirect: 1,
+        no_html: 1,
+        skip_disambig: 1,
+      }
+    });
+    return response.data;
+  } catch {
+    return null;
+  }
+}
 
 router.post('/gemma', async (req, res) => {
-  const { message } = req.body;
+  const { message, chatHistory = [] } = req.body;
   if (!message) return res.status(400).json({ error: 'Message is required' });
 
   try {
-    // Call the FastAPI Gemma endpoint via Cloudflare Tunnel URL
+    // Step 1: Use a simple heuristic or external service to detect if quick search is needed
+    const needsSearch = /* your logic here, e.g., assume true for now */ true;
+    
+    let searchContext = '';
+    if (needsSearch) {
+      const searchResults = await quickSearchDuckDuckGo(message);
+      // Extract relevant info from searchResults to include in prompt
+      if (searchResults && searchResults.AbstractText) {
+        searchContext = `Quick search info: ${searchResults.AbstractText}`;
+      }
+    }
+
+    // Step 2: Build the prompt input to Gemma combining chat history, user message, and context
+    let conversation = '';
+    for (const msg of chatHistory) {
+      conversation += `${msg.sender === 'user' ? 'User' : 'Bot'}: ${msg.text}\n`;
+    }
+    conversation += `User: ${message}\n${searchContext ? searchContext + '\n' : ''}Bot:`;
+
+    // Step 3: Send prompt to FastAPI Gemma model
     const fastapiResponse = await axios.post(
       `${TUNNEL_URL}/predict`,
-      { text: message },  // Matches your FastAPI payload
-      {
-        headers: { 'Content-Type': 'application/json' }
-      }
+      { text: conversation },
+      { headers: { 'Content-Type': 'application/json' } }
     );
 
     const answer = fastapiResponse.data?.response || 'No answer from Gemma model.';
