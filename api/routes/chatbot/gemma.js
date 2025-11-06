@@ -2,8 +2,9 @@ const express = require('express');
 const axios = require('axios');
 const router = express.Router();
 
-const TUNNEL_URL = 'https://reading-interfaces-games-cingular.trycloudflare.com'; // your tunnel URL
+const TUNNEL_URL = 'https://reading-interfaces-games-cingular.trycloudflare.com'; // your Cloudflare tunnel
 
+// --- Simple in-memory cache for quick searches ---
 const searchCache = new Map();
 
 async function quickSearchDuckDuckGo(query) {
@@ -17,7 +18,7 @@ async function quickSearchDuckDuckGo(query) {
         no_html: 1,
         skip_disambig: 1,
       },
-      timeout: 2000
+      timeout: 2000,
     });
     searchCache.set(query, response.data);
     setTimeout(() => searchCache.delete(query), 10 * 60 * 1000);
@@ -31,11 +32,13 @@ function userIsCorrecting(message) {
   return /no|not correct|wrong|but/i.test(message.toLowerCase());
 }
 
+// --- Main chatbot route ---
 router.post('/gemma', async (req, res) => {
   const { message, chatHistory = [] } = req.body;
   if (!message) return res.status(400).json({ error: 'Message is required' });
 
   try {
+    // 🔍 Quick web search for context
     const searchResults = await quickSearchDuckDuckGo(message);
     const recentChat = chatHistory.slice(-5);
 
@@ -44,40 +47,60 @@ router.post('/gemma', async (req, res) => {
       if (searchResults.AbstractText) {
         webSummary = searchResults.AbstractText;
       } else if (searchResults.RelatedTopics?.length) {
-        webSummary = searchResults.RelatedTopics.slice(0, 2)
-          .map(t => t.Text)
+        webSummary = searchResults.RelatedTopics
+          .slice(0, 2)
+          .map((t) => t.Text)
           .join(' | ');
       }
     }
 
+    // 🧠 System prompt for personality
     const systemPrompt = `
-You are LibraX — a helpful, friendly AI librarian that assists users with questions about books, authors, songs, and general knowledge.
-Use a natural, conversational tone.
-If information from the search is available, use it directly.
-If not, give your best educated answer or politely admit uncertainty.
-Never repeat instructions or say "I'm ready."
+You are LibraX — a friendly, helpful AI librarian.
+You assist users with questions about books, authors, songs, and general knowledge.
+Speak naturally and conversationally, as if chatting with a library visitor.
+If you have info from the search, use it.
+If not, answer with your best knowledge or say you're unsure.
+Avoid repeating instructions or saying “I'm ready.”
     `.trim();
 
+    // 💬 Format chat history into structured messages
     const conversationMessages = [
-      { role: "system", content: systemPrompt },
-      ...recentChat.map(msg => ({
-        role: msg.sender === "user" ? "user" : "assistant",
-        content: msg.text
+      { role: 'system', content: systemPrompt },
+      ...recentChat.map((msg) => ({
+        role: msg.sender === 'user' ? 'user' : 'assistant',
+        content: msg.text,
       })),
-      { role: "user", content: `${message}\nWeb search: ${webSummary}` }
+      { role: 'user', content: `${message}\nWeb search: ${webSummary}` },
     ];
 
-    const fastapiResponse = await axios.post(
-      `${TUNNEL_URL}/predict`,
-      { messages: conversationMessages },
-      { headers: { "Content-Type": "application/json" } }
-    );
+    // 🚀 Send to FastAPI model via tunnel
+    let fastapiResponse;
+    try {
+      fastapiResponse = await axios.post(
+        `${TUNNEL_URL}/predict`,
+        { messages: conversationMessages },
+        {
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 60000, // ⏳ Wait up to 60 seconds for slow CPU inference
+        }
+      );
+    } catch (err) {
+      console.error('❌ Tunnel/Model error:', err.message);
+      return res
+        .status(502)
+        .json({ error: 'The AI model took too long or is unreachable.' });
+    }
 
-    const answer = fastapiResponse.data?.response || "No answer from Gemma model.";
+    const answer =
+      fastapiResponse.data?.response?.trim() || 'No response from the model.';
     res.json({ answer });
   } catch (error) {
-    console.error("Error querying Gemma API via tunnel:", error.response?.data || error.message);
-    res.status(500).json({ error: "Failed to get response from Gemma model" });
+    console.error(
+      'Error querying Gemma API via tunnel:',
+      error.response?.data || error.message
+    );
+    res.status(500).json({ error: 'Failed to get response from Gemma model' });
   }
 });
 
