@@ -4,12 +4,10 @@ const router = express.Router();
 
 const TUNNEL_URL = 'https://reading-interfaces-games-cingular.trycloudflare.com'; // your tunnel URL
 
-// In-memory cache for DuckDuckGo search results
 const searchCache = new Map();
 
 async function quickSearchDuckDuckGo(query) {
   if (searchCache.has(query)) return searchCache.get(query);
-
   try {
     const response = await axios.get('https://api.duckduckgo.com/', {
       params: {
@@ -41,55 +39,45 @@ router.post('/gemma', async (req, res) => {
     const searchResults = await quickSearchDuckDuckGo(message);
     const recentChat = chatHistory.slice(-5);
 
-    let webSummary = '';
+    let webSummary = 'No relevant info found.';
     if (searchResults) {
       if (searchResults.AbstractText) {
         webSummary = searchResults.AbstractText;
       } else if (searchResults.RelatedTopics?.length) {
-        const topics = searchResults.RelatedTopics.slice(0, 2)
+        webSummary = searchResults.RelatedTopics.slice(0, 2)
           .map(t => t.Text)
           .join(' | ');
-        webSummary = topics || 'No relevant info found.';
-      } else {
-        webSummary = 'No relevant info found.';
       }
     }
 
-    const conversation = `
-You are LibraX — a friendly AI librarian that helps users with information about books, authors, songs, and general knowledge.
+    const systemPrompt = `
+You are LibraX — a helpful, friendly AI librarian that assists users with questions about books, authors, songs, and general knowledge.
+Use a natural, conversational tone.
+If information from the search is available, use it directly.
+If not, give your best educated answer or politely admit uncertainty.
+Never repeat instructions or say "I'm ready."
+    `.trim();
 
-Your goals:
-- Be conversational, friendly, and informative.
-- If the search provides info, use it.
-- If the search fails, politely admit you’re not sure, but try to infer context.
-- Never just say “I’m not sure.” unless you truly have no clue.
-
-Previous chat:
-${recentChat.map(msg => `${msg.sender === 'user' ? 'User' : 'LibraX'}: ${msg.text}`).join('\n')}
-
-New user message:
-User: ${message}
-
-Web search result summary:
-${webSummary}
-
-If the user is correcting you, acknowledge that briefly.
-
-Now answer clearly and naturally as LibraX, in one or two sentences.
-LibraX:
-`;
+    const conversationMessages = [
+      { role: "system", content: systemPrompt },
+      ...recentChat.map(msg => ({
+        role: msg.sender === "user" ? "user" : "assistant",
+        content: msg.text
+      })),
+      { role: "user", content: `${message}\nWeb search: ${webSummary}` }
+    ];
 
     const fastapiResponse = await axios.post(
       `${TUNNEL_URL}/predict`,
-      { text: conversation },
-      { headers: { 'Content-Type': 'application/json' } }
+      { messages: conversationMessages },
+      { headers: { "Content-Type": "application/json" } }
     );
 
-    const answer = fastapiResponse.data?.response || 'No answer from Gemma model.';
+    const answer = fastapiResponse.data?.response || "No answer from Gemma model.";
     res.json({ answer });
   } catch (error) {
-    console.error('Error querying Gemma API via tunnel:', error.response?.data || error.message);
-    res.status(500).json({ error: 'Failed to get response from Gemma model' });
+    console.error("Error querying Gemma API via tunnel:", error.response?.data || error.message);
+    res.status(500).json({ error: "Failed to get response from Gemma model" });
   }
 });
 
