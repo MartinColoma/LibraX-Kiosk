@@ -2,7 +2,8 @@ const express = require('express');
 const axios = require('axios');
 const router = express.Router();
 
-const TUNNEL_URL = 'https://css-innovations-conclude-inspection.trycloudflare.com'; // your tunnel URL
+const TUNNEL_URL = 'https://reading-interfaces-games-cingular.trycloudflare.com';
+// your tunnel URL
 
 // Example function that calls DuckDuckGo Instant Answer API
 async function quickSearchDuckDuckGo(query) {
